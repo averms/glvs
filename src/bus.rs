@@ -17,8 +17,8 @@ impl Default for Bus {
 }
 
 impl Bus {
-    /// Returns the byte corresponding to the address, whether that be in RAM or data from
-    /// another device on the bus.
+    /// Returns the byte corresponding to the address, whether that be in RAM or
+    /// data from another device on the bus.
     #[must_use]
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
@@ -31,6 +31,10 @@ impl Bus {
         match addr {
             0x0000..=0xFFFF => self.ram[usize::from(addr)] = data,
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.ram.fill(0);
     }
 }
 
