@@ -46,8 +46,8 @@ struct Status(u8);
 
 impl Default for Status {
     fn default() -> Self {
-        // not sure what this should be yet.
-        Status(0b0010_0000)
+        // according to blargg's cpu_reset test ROM.
+        Self(0b0011_0100)
     }
 }
 
@@ -122,19 +122,18 @@ impl Status {
         self.0 | 0b0011_0000
     }
 
-    fn from_popped(value: u8) -> Status {
-        Status(value & 0b1100_1111 | (1 << 5))
+    fn from_popped(value: u8) -> Self {
+        Self(value & 0b1100_1111 | (1 << 5))
     }
 }
 
 impl Cpu {
     #[must_use]
     pub fn new(pc: u16) -> Self {
-        Cpu {
+        Self {
             registers: Registers {
                 pc,
-                // this might need to be 0xFD?
-                sp: 0xFF,
+                sp: 0xFD,
                 a: 0,
                 x: 0,
                 y: 0,
@@ -144,7 +143,7 @@ impl Cpu {
         }
     }
 
-    /// Execute one instruction. This calls [`Cpu::clock`] one or more times.
+    /// Execute one instruction. This calls [`Cpu::cycle`] one or more times.
     pub fn one_instruction(&mut self, bus: &mut Bus) {
         loop {
             self.cycle(bus);
@@ -186,19 +185,19 @@ enum AddrMode {
 }
 
 impl AddrMode {
-    fn load(self, regs: &mut Registers, bus: &mut Bus) -> u8 {
+    fn load(self, regs: &Registers, bus: &Bus) -> u8 {
         match self {
-            AddrMode::Immediate(value) => value,
-            AddrMode::Accumulator => regs.a,
-            AddrMode::Memory(addr, _) => bus.read(addr),
+            Self::Immediate(value) => value,
+            Self::Accumulator => regs.a,
+            Self::Memory(addr, _) => bus.read(addr),
         }
     }
 
     fn store(self, regs: &mut Registers, bus: &mut Bus, value: u8) {
         match self {
-            AddrMode::Immediate(_) => unreachable!("can't store to immediate"),
-            AddrMode::Accumulator => regs.a = value,
-            AddrMode::Memory(addr, _) => bus.write(addr, value),
+            Self::Immediate(_) => unreachable!("can't store to immediate"),
+            Self::Accumulator => regs.a = value,
+            Self::Memory(addr, _) => bus.write(addr, value),
         }
     }
 
@@ -206,83 +205,83 @@ impl AddrMode {
     /// Always a 0 or 1.
     fn extra_cycles_needed(self) -> u8 {
         match self {
-            AddrMode::Memory(_, needs_extra_cycle) => needs_extra_cycle.into(),
-            AddrMode::Accumulator | AddrMode::Immediate(_) => 0,
+            Self::Memory(_, needs_extra_cycle) => needs_extra_cycle.into(),
+            Self::Accumulator | Self::Immediate(_) => 0,
         }
     }
 
     // Constructors.
 
-    fn relative(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
-        AddrMode::immediate(regs, bus)
+    fn relative(regs: &mut Registers, bus: &Bus) -> Self {
+        Self::immediate(regs, bus)
     }
 
-    fn immediate(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
-        AddrMode::Immediate(regs.read_and_bump_pc(bus))
+    fn immediate(regs: &mut Registers, bus: &Bus) -> Self {
+        Self::Immediate(regs.read_and_bump_pc(bus))
     }
 
-    fn zero_page(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
-        AddrMode::Memory(regs.read_and_bump_pc(bus).into(), false)
+    fn zero_page(regs: &mut Registers, bus: &Bus) -> Self {
+        Self::Memory(regs.read_and_bump_pc(bus).into(), false)
     }
 
-    fn zero_page_y(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
+    fn zero_page_y(regs: &mut Registers, bus: &Bus) -> Self {
         let base = regs.read_and_bump_pc(bus);
         let zero_page_addr = base.wrapping_add(regs.y);
-        AddrMode::Memory(zero_page_addr.into(), false)
+        Self::Memory(zero_page_addr.into(), false)
     }
 
-    fn zero_page_x(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
+    fn zero_page_x(regs: &mut Registers, bus: &Bus) -> Self {
         let base = regs.read_and_bump_pc(bus);
         let zero_page_addr = base.wrapping_add(regs.x);
-        AddrMode::Memory(zero_page_addr.into(), false)
+        Self::Memory(zero_page_addr.into(), false)
     }
 
-    fn absolute(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
+    fn absolute(regs: &mut Registers, bus: &Bus) -> Self {
         let low = regs.read_and_bump_pc(bus);
         let high = regs.read_and_bump_pc(bus);
         let addr = u16::from_le_bytes([low, high]);
-        AddrMode::Memory(addr, false)
+        Self::Memory(addr, false)
     }
 
-    fn absolute_x(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
+    fn absolute_x(regs: &mut Registers, bus: &Bus) -> Self {
         let low = regs.read_and_bump_pc(bus);
         let high = regs.read_and_bump_pc(bus);
         let base = u16::from_le_bytes([low, high]);
         let addr = base.wrapping_add(regs.x.into());
         let page_crossed = (base & 0xFF00) != (addr & 0xFF00);
-        AddrMode::Memory(addr, page_crossed)
+        Self::Memory(addr, page_crossed)
     }
 
-    fn absolute_y(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
+    fn absolute_y(regs: &mut Registers, bus: &Bus) -> Self {
         let low = regs.read_and_bump_pc(bus);
         let high = regs.read_and_bump_pc(bus);
         let base = u16::from_le_bytes([low, high]);
         let addr = base.wrapping_add(regs.y.into());
         let page_crossed = (base & 0xFF00) != (addr & 0xFF00);
-        AddrMode::Memory(addr, page_crossed)
+        Self::Memory(addr, page_crossed)
     }
 
-    fn indirect_indexed(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
+    fn indirect_indexed(regs: &mut Registers, bus: &Bus) -> Self {
         let zero_page_ptr = regs.read_and_bump_pc(bus);
         let low = bus.read(zero_page_ptr.into());
         let high = bus.read(zero_page_ptr.wrapping_add(1).into());
         let base = u16::from_le_bytes([low, high]);
         let addr = base.wrapping_add(regs.y.into());
         let page_crossed = (base & 0xFF00) != (addr & 0xFF00);
-        AddrMode::Memory(addr, page_crossed)
+        Self::Memory(addr, page_crossed)
     }
 
-    fn indexed_indirect(regs: &mut Registers, bus: &mut Bus) -> AddrMode {
+    fn indexed_indirect(regs: &mut Registers, bus: &Bus) -> Self {
         let ptr_base = regs.read_and_bump_pc(bus);
         let ptr = ptr_base.wrapping_add(regs.x);
         let low = bus.read(ptr.into());
         let high = bus.read(ptr.wrapping_add(1).into());
         let addr = u16::from_le_bytes([low, high]);
-        AddrMode::Memory(addr, false)
+        Self::Memory(addr, false)
     }
 }
 
-fn jump_indirect(regs: &mut Registers, bus: &mut Bus) -> u16 {
+fn jump_indirect(regs: &mut Registers, bus: &Bus) -> u16 {
     let ptr_low = regs.read_and_bump_pc(bus);
     let ptr_high = regs.read_and_bump_pc(bus);
     // replicate 6502 bug where the high byte of the address can be fetched from the
@@ -292,7 +291,7 @@ fn jump_indirect(regs: &mut Registers, bus: &mut Bus) -> u16 {
     u16::from_le_bytes([low, high])
 }
 
-fn jump_absolute(regs: &mut Registers, bus: &mut Bus) -> u16 {
+fn jump_absolute(regs: &mut Registers, bus: &Bus) -> u16 {
     let low = regs.read_and_bump_pc(bus);
     let high = regs.read_and_bump_pc(bus);
     u16::from_le_bytes([low, high])

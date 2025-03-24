@@ -1,16 +1,19 @@
 //! The implementation of every 6502 instruction.
 //!
-//! Every function takes:
+//! Every pub function takes:
 //! - `&mut Registers`
 //!
-//! They can optionally take one of:
-//! - `AddrMode` and `&mut Bus`: functions with an addressing mode that is not implicit
-//! - Just `&mut Bus`: functions with an implicit addressing mode and that need to r/w
-//!   to memory
-//! - `u16`: jump instructions
+//! They can optionally take:
+//! - `&Bus`: load instructions.
+//!   - `AddrMode`: load instructions with an addressing mode that is not implicit.
+//! - `&mut Bus`: store or load-modify-store instructions.
+//!   - `AddrMode`: store or load-modify-store instructions with an addressing mode that
+//!     is not implicit.
+//! - `u16`: JMP
+//! - `&mut Bus` and `u16`: JSR
 //!
-//! Every function returns 0, 1, or 2: the number of additional cycles it is
-//! supposed to take.
+//! Every function returns the number of additional cycles it is supposed to take. This
+//! is always 0, 1, or 2.
 //!
 //! The rules are:
 //! - Add one cycle if load addressing crossed a page boundary (calculated by
@@ -23,17 +26,15 @@
     reason = "more readable to express the branch instructions this way."
 )]
 
-use crate::{
-    bus::Bus,
-    cpu::{AddrMode, Registers, Status, page_of},
-};
+use crate::bus::Bus;
+use crate::cpu::{AddrMode, Registers, Status, page_of};
 
 const STACK_BASE: u16 = 0x0100;
 const IRQ_BASE: u16 = 0xFFFE;
 
 // Access instructions.
 
-pub fn lda(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn lda(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     regs.a = m.load(regs, bus);
     regs.ps.set_zero(regs.a == 0);
     regs.ps.set_if_negative(regs.a);
@@ -45,7 +46,7 @@ pub fn sta(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     0
 }
 
-pub fn ldx(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn ldx(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     regs.x = m.load(regs, bus);
     regs.ps.set_zero(regs.x == 0);
     regs.ps.set_if_negative(regs.x);
@@ -57,7 +58,7 @@ pub fn stx(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     0
 }
 
-pub fn ldy(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn ldy(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     regs.y = m.load(regs, bus);
     regs.ps.set_zero(regs.y == 0);
     regs.ps.set_if_negative(regs.y);
@@ -114,7 +115,7 @@ pub fn txs(regs: &mut Registers) -> u8 {
 
 // Arithmetic instructions.
 
-pub fn adc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn adc(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     let carry_in: u8 = regs.ps.carry().into();
     let operand = m.load(regs, bus);
 
@@ -135,7 +136,7 @@ pub fn adc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     m.extra_cycles_needed()
 }
 
-pub fn sbc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn sbc(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     let borrow_in: u8 = (!regs.ps.carry()).into();
     let operand = m.load(regs, bus);
 
@@ -242,28 +243,28 @@ pub fn ror(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
 
 // Bitwise instructions.
 
-pub fn and(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn and(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     regs.a &= m.load(regs, bus);
     regs.ps.set_zero(regs.a == 0);
     regs.ps.set_if_negative(regs.a);
     m.extra_cycles_needed()
 }
 
-pub fn ora(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn ora(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     regs.a |= m.load(regs, bus);
     regs.ps.set_zero(regs.a == 0);
     regs.ps.set_if_negative(regs.a);
     m.extra_cycles_needed()
 }
 
-pub fn eor(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn eor(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     regs.a ^= m.load(regs, bus);
     regs.ps.set_zero(regs.a == 0);
     regs.ps.set_if_negative(regs.a);
     m.extra_cycles_needed()
 }
 
-pub fn bit(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn bit(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     let operand = m.load(regs, bus);
     let result = regs.a & operand;
     regs.ps.set_zero(result == 0);
@@ -274,7 +275,7 @@ pub fn bit(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
 
 // Compare instructions.
 
-pub fn cmp(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn cmp(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     let operand = m.load(regs, bus);
     let result = regs.a.wrapping_sub(operand);
     regs.ps.set_zero(result == 0);
@@ -283,7 +284,7 @@ pub fn cmp(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     m.extra_cycles_needed()
 }
 
-pub fn cpx(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn cpx(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     let operand = m.load(regs, bus);
     let result = regs.x.wrapping_sub(operand);
     regs.ps.set_zero(result == 0);
@@ -292,7 +293,7 @@ pub fn cpx(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     0
 }
 
-pub fn cpy(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn cpy(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     let operand = m.load(regs, bus);
     let result = regs.y.wrapping_sub(operand);
     regs.ps.set_zero(result == 0);
@@ -318,7 +319,7 @@ pub fn jsr(regs: &mut Registers, bus: &mut Bus, operand: u16) -> u8 {
     0
 }
 
-pub fn rts(regs: &mut Registers, bus: &mut Bus) -> u8 {
+pub fn rts(regs: &mut Registers, bus: &Bus) -> u8 {
     let low = stack_pop(regs, bus);
     let high = stack_pop(regs, bus);
     regs.pc = u16::from_le_bytes([low, high]).wrapping_add(1);
@@ -340,7 +341,7 @@ pub fn brk(regs: &mut Registers, bus: &mut Bus) -> u8 {
     0
 }
 
-pub fn rti(regs: &mut Registers, bus: &mut Bus) -> u8 {
+pub fn rti(regs: &mut Registers, bus: &Bus) -> u8 {
     plp(regs, bus);
     let low = stack_pop(regs, bus);
     let high = stack_pop(regs, bus);
@@ -355,7 +356,7 @@ pub fn pha(regs: &mut Registers, bus: &mut Bus) -> u8 {
     0
 }
 
-pub fn pla(regs: &mut Registers, bus: &mut Bus) -> u8 {
+pub fn pla(regs: &mut Registers, bus: &Bus) -> u8 {
     regs.a = stack_pop(regs, bus);
     regs.ps.set_zero(regs.a == 0);
     regs.ps.set_if_negative(regs.a);
@@ -367,7 +368,7 @@ pub fn php(regs: &mut Registers, bus: &mut Bus) -> u8 {
     0
 }
 
-pub fn plp(regs: &mut Registers, bus: &mut Bus) -> u8 {
+pub fn plp(regs: &mut Registers, bus: &Bus) -> u8 {
     regs.ps = Status::from_popped(stack_pop(regs, bus));
     0
 }
@@ -377,7 +378,7 @@ fn stack_push(regs: &mut Registers, bus: &mut Bus, value: u8) {
     regs.sp = regs.sp.wrapping_sub(1);
 }
 
-fn stack_pop(regs: &mut Registers, bus: &mut Bus) -> u8 {
+fn stack_pop(regs: &mut Registers, bus: &Bus) -> u8 {
     regs.sp = regs.sp.wrapping_add(1);
     bus.read(STACK_BASE.wrapping_add(regs.sp.into()))
 }
@@ -385,7 +386,7 @@ fn stack_pop(regs: &mut Registers, bus: &mut Bus) -> u8 {
 // Branch instructions. All have a relative address passed in as operand. This
 // is exactly like immediate addressing.
 
-pub fn bcc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn bcc(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     if !regs.ps.carry() {
         let operand = m.load(regs, bus);
         branch(regs, operand)
@@ -394,7 +395,7 @@ pub fn bcc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     }
 }
 
-pub fn bcs(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn bcs(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     if regs.ps.carry() {
         let operand = m.load(regs, bus);
         branch(regs, operand)
@@ -403,7 +404,7 @@ pub fn bcs(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     }
 }
 
-pub fn beq(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn beq(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     if regs.ps.zero() {
         let operand = m.load(regs, bus);
         branch(regs, operand)
@@ -412,7 +413,7 @@ pub fn beq(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     }
 }
 
-pub fn bne(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn bne(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     if !regs.ps.zero() {
         let operand = m.load(regs, bus);
         branch(regs, operand)
@@ -421,7 +422,7 @@ pub fn bne(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     }
 }
 
-pub fn bpl(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn bpl(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     if !regs.ps.negative() {
         let operand = m.load(regs, bus);
         branch(regs, operand)
@@ -430,7 +431,7 @@ pub fn bpl(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     }
 }
 
-pub fn bmi(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn bmi(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     if regs.ps.negative() {
         let operand = m.load(regs, bus);
         branch(regs, operand)
@@ -439,7 +440,7 @@ pub fn bmi(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     }
 }
 
-pub fn bvc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn bvc(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     if !regs.ps.overflow() {
         let operand = m.load(regs, bus);
         branch(regs, operand)
@@ -448,7 +449,7 @@ pub fn bvc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     }
 }
 
-pub fn bvs(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
+pub fn bvs(regs: &mut Registers, bus: &Bus, m: AddrMode) -> u8 {
     if regs.ps.overflow() {
         let operand = m.load(regs, bus);
         branch(regs, operand)

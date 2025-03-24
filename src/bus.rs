@@ -8,7 +8,7 @@ pub struct Bus {
 
 impl Default for Bus {
     fn default() -> Self {
-        Bus {
+        Self {
             ram: vec![0; BUS_SIZE]
                 .try_into()
                 .expect("this is the idiom to create arrays on the heap."),
