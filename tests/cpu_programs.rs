@@ -1,8 +1,9 @@
 use nes::{Bus, Cpu};
 
 #[test]
-fn basic() {
-    let easy: [&[u8]; 6] = [
+fn easy() {
+    const COUNT: usize = 6;
+    let easy: [&[u8]; COUNT] = [
         &[0xA9, 0x01],
         &[0x8D, 0x00, 0x02],
         &[0xA9, 0x05],
@@ -12,8 +13,12 @@ fn basic() {
     ];
     let mut bus = Bus::default();
     let mut cpu = Cpu::new(0x0600);
+
     setup(&mut bus, &easy);
-    cpu.clock_until_brk(&mut bus);
+    for _ in 0..COUNT {
+        cpu.one_instruction(&mut bus);
+    }
+
     assert_eq!(0x01, bus.read(0x0200));
     assert_eq!(0x05, bus.read(0x0201));
     assert_eq!(0x08, bus.read(0x0202));

@@ -4,10 +4,9 @@
 //! - `&mut Registers`
 //!
 //! They can optionally take one of:
-//! - `AddrMode` and `&mut Bus`: functions with an addressing mode that is not
-//!   implicit
-//! - Just `&mut Bus`: functions with an implicit addressing mode and that need
-//!   to r/w to memory
+//! - `AddrMode` and `&mut Bus`: functions with an addressing mode that is not implicit
+//! - Just `&mut Bus`: functions with an implicit addressing mode and that need to r/w
+//!   to memory
 //! - `u16`: jump instructions
 //!
 //! Every function returns 0, 1, or 2: the number of additional cycles it is
@@ -17,8 +16,7 @@
 //! - Add one cycle if load addressing crossed a page boundary (calculated by
 //!   `AddrMode`).
 //! - Add one cycle on branch instructions if the branch was taken.
-//! - Add another cycle on branch instructions if we jumped across a page
-//!   boundary.
+//! - Add another cycle on branch instructions if we jumped across a page boundary.
 
 #![expect(
     clippy::if_not_else,
@@ -27,11 +25,11 @@
 
 use crate::{
     bus::Bus,
-    cpu::{AddrMode, Registers, page_of, status::Status},
+    cpu::{AddrMode, Registers, Status, page_of},
 };
 
 const STACK_BASE: u16 = 0x0100;
-const IRQ_VECTOR: u16 = 0xFFFE;
+const IRQ_BASE: u16 = 0xFFFE;
 
 // Access instructions.
 
@@ -50,7 +48,7 @@ pub fn sta(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
 pub fn ldx(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     regs.x = m.load(regs, bus);
     regs.ps.set_zero(regs.x == 0);
-    regs.ps.set_if_negative(regs.a);
+    regs.ps.set_if_negative(regs.x);
     m.extra_cycles_needed()
 }
 
@@ -62,7 +60,7 @@ pub fn stx(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
 pub fn ldy(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     regs.y = m.load(regs, bus);
     regs.ps.set_zero(regs.y == 0);
-    regs.ps.set_if_negative(regs.a);
+    regs.ps.set_if_negative(regs.y);
     m.extra_cycles_needed()
 }
 
@@ -76,14 +74,14 @@ pub fn sty(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
 pub fn tax(regs: &mut Registers) -> u8 {
     regs.x = regs.a;
     regs.ps.set_zero(regs.x == 0);
-    regs.ps.set_if_negative(regs.a);
+    regs.ps.set_if_negative(regs.x);
     0
 }
 
 pub fn tsx(regs: &mut Registers) -> u8 {
     regs.x = regs.sp;
     regs.ps.set_zero(regs.x == 0);
-    regs.ps.set_if_negative(regs.a);
+    regs.ps.set_if_negative(regs.x);
     0
 }
 
@@ -104,7 +102,7 @@ pub fn tya(regs: &mut Registers) -> u8 {
 pub fn tay(regs: &mut Registers) -> u8 {
     regs.y = regs.a;
     regs.ps.set_zero(regs.y == 0);
-    regs.ps.set_if_negative(regs.a);
+    regs.ps.set_if_negative(regs.y);
     0
 }
 
@@ -124,8 +122,10 @@ pub fn adc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     let (result, carry2) = result1.overflowing_add(carry_in);
     let carry = carry1 || carry2;
 
-    // The classic formula for the overflow flag is C6 ^ C7.
-    let bit_6_carry = (regs.a & 0x7F) + (operand & 0x7F) + carry_in >= 0x80;
+    // The classic formula for the overflow flag is C6 ^ C7. C6 is calculated by doing the
+    // addition again, this time with only the 7 LSBs of register A and the operand. If the
+    // result is >= 0x80, there was a carry out of bit 6.
+    let bit_6_carry = (regs.a & 0x7F) + (operand & 0x7F) + carry_in >= 1 << 7;
 
     regs.a = result;
     regs.ps.set_zero(regs.a == 0);
@@ -142,6 +142,7 @@ pub fn sbc(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     let (result1, borrowed1) = regs.a.overflowing_sub(operand);
     let (result, borrowed2) = result1.overflowing_sub(borrow_in);
     let borrowed = borrowed1 || borrowed2;
+
     // The classic formula for the overflow flag is still C6 ^ C7.
     let bit_6_borrowed = (regs.a & 0x7F) < (operand & 0x7F) + borrow_in;
 
@@ -201,18 +202,18 @@ pub fn dey(regs: &mut Registers) -> u8 {
 
 pub fn asl(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     let temp = m.load(regs, bus);
-    regs.ps.set_carry(temp & (1 << 7) != 0);
     let result = temp << 1;
+    regs.ps.set_carry(temp & (1 << 7) != 0);
     regs.ps.set_zero(result == 0);
     regs.ps.set_if_negative(result);
-    m.store(regs, bus, temp);
+    m.store(regs, bus, result);
     0
 }
 
 pub fn lsr(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     let temp = m.load(regs, bus);
-    regs.ps.set_carry(temp & (1 << 0) != 0);
     let result = temp >> 1;
+    regs.ps.set_carry(temp & (1 << 0) != 0);
     regs.ps.set_zero(result == 0);
     regs.ps.set_if_negative(result);
     m.store(regs, bus, result);
@@ -221,8 +222,8 @@ pub fn lsr(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
 
 pub fn rol(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     let temp = m.load(regs, bus);
-    regs.ps.set_carry(temp & (1 << 7) != 0);
     let result = temp << 1 | u8::from(regs.ps.carry());
+    regs.ps.set_carry(temp & (1 << 7) != 0);
     regs.ps.set_zero(result == 0);
     regs.ps.set_if_negative(result);
     m.store(regs, bus, result);
@@ -231,8 +232,8 @@ pub fn rol(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
 
 pub fn ror(regs: &mut Registers, bus: &mut Bus, m: AddrMode) -> u8 {
     let temp = m.load(regs, bus);
-    regs.ps.set_carry(temp & (1 << 0) != 0);
     let result = u8::from(regs.ps.carry()) << 7 | temp >> 1;
+    regs.ps.set_carry(temp & (1 << 0) != 0);
     regs.ps.set_zero(result == 0);
     regs.ps.set_if_negative(result);
     m.store(regs, bus, result);
@@ -333,8 +334,8 @@ pub fn brk(regs: &mut Registers, bus: &mut Bus) -> u8 {
     // TODO: implement 6502 bug.
     stack_push(regs, bus, regs.ps.to_pushable());
     regs.ps.set_interrupt(true);
-    let irq_lo = bus.read(IRQ_VECTOR);
-    let irq_hi = bus.read(IRQ_VECTOR + 1);
+    let irq_lo = bus.read(IRQ_BASE);
+    let irq_hi = bus.read(IRQ_BASE + 1);
     regs.pc = u16::from_le_bytes([irq_lo, irq_hi]);
     0
 }

@@ -1,11 +1,10 @@
-//! Emulator for the Ricoh 2A03.
+//! CPU implementation.
 
 mod instructions;
-mod status;
+#[cfg(test)]
+mod tests;
 
-#[expect(clippy::wildcard_imports)]
-use crate::cpu::instructions::*;
-use crate::{bus::Bus, cpu::status::Status};
+use crate::bus::Bus;
 
 #[derive(Debug)]
 pub struct Cpu {
@@ -28,6 +27,145 @@ impl Registers {
         let current_pc = self.pc;
         self.pc = self.pc.wrapping_add(1);
         bus.read(current_pc)
+    }
+}
+
+/// 6502 status register.
+///
+/// 0. carry
+/// 1. zero
+/// 2. interrupt
+/// 3. decimal (not actually supported but can be set)
+/// 4. break (unused)
+/// 5. (unused, always pushed as 1)
+/// 6. overflow
+/// 7. negative
+#[derive(Debug, Clone, Copy)]
+#[repr(transparent)]
+struct Status(u8);
+
+impl Default for Status {
+    fn default() -> Self {
+        // not sure what this should be yet.
+        Status(0b0010_0000)
+    }
+}
+
+impl Status {
+    // Getters.
+    fn carry(self) -> bool {
+        self.0 & (1 << 0) != 0
+    }
+    fn zero(self) -> bool {
+        self.0 & (1 << 1) != 0
+    }
+    #[expect(dead_code)]
+    fn interrupt(self) -> bool {
+        self.0 & (1 << 2) != 0
+    }
+    fn overflow(self) -> bool {
+        self.0 & (1 << 6) != 0
+    }
+    fn negative(self) -> bool {
+        self.0 & (1 << 7) != 0
+    }
+
+    // Setters.
+    fn set_carry(&mut self, c: bool) {
+        if c {
+            self.0 |= 1 << 0;
+        } else {
+            self.0 &= !(1 << 0);
+        }
+    }
+    fn set_zero(&mut self, z: bool) {
+        if z {
+            self.0 |= 1 << 1;
+        } else {
+            self.0 &= !(1 << 1);
+        }
+    }
+    fn set_interrupt(&mut self, i: bool) {
+        if i {
+            self.0 |= 1 << 2;
+        } else {
+            self.0 &= !(1 << 2);
+        }
+    }
+    fn set_decimal(&mut self, d: bool) {
+        if d {
+            self.0 |= 1 << 3;
+        } else {
+            self.0 &= !(1 << 3);
+        }
+    }
+    fn set_overflow(&mut self, v: bool) {
+        if v {
+            self.0 |= 1 << 6;
+        } else {
+            self.0 &= !(1 << 6);
+        }
+    }
+    fn set_negative(&mut self, n: bool) {
+        if n {
+            self.0 |= 1 << 7;
+        } else {
+            self.0 &= !(1 << 7);
+        }
+    }
+
+    fn set_if_negative(&mut self, num: u8) {
+        self.set_negative(i8::from_le_bytes([num]) < 0);
+    }
+
+    fn to_pushable(self) -> u8 {
+        self.0 | 0b0011_0000
+    }
+
+    fn from_popped(value: u8) -> Status {
+        Status(value & 0b1100_1111 | (1 << 5))
+    }
+}
+
+impl Cpu {
+    #[must_use]
+    pub fn new(pc: u16) -> Self {
+        Cpu {
+            registers: Registers {
+                pc,
+                // this might need to be 0xFD?
+                sp: 0xFF,
+                a: 0,
+                x: 0,
+                y: 0,
+                ps: Status::default(),
+            },
+            cycles_left: 0,
+        }
+    }
+
+    /// Execute one instruction. This calls [`Cpu::clock`] one or more times.
+    pub fn one_instruction(&mut self, bus: &mut Bus) {
+        loop {
+            self.cycle(bus);
+            if self.cycles_left == 0 {
+                break;
+            }
+        }
+    }
+
+    /// Perform one clock-cycle worth of emulation. This is not cycle-accurate
+    /// at all. In fact, it does every operation in one cycle and then does
+    /// nothing for the remaining cycles that instruction is supposed to
+    /// take.
+    pub fn cycle(&mut self, bus: &mut Bus) {
+        if self.cycles_left > 0 {
+            self.cycles_left -= 1;
+            return;
+        }
+
+        let opcode = self.registers.read_and_bump_pc(bus);
+        self.cycles_left = decode_and_execute(&mut self.registers, bus, opcode) - 1;
     }
 }
 
@@ -160,47 +298,6 @@ fn jump_absolute(regs: &mut Registers, bus: &mut Bus) -> u16 {
     u16::from_le_bytes([low, high])
 }
 
-impl Cpu {
-    #[must_use]
-    pub fn new(pc: u16) -> Self {
-        Cpu {
-            registers: Registers {
-                pc,
-                // this might need to be 0xFD?
-                sp: 0xFF,
-                a: 0,
-                x: 0,
-                y: 0,
-                ps: Status::default(),
-            },
-            cycles_left: 0,
-        }
-    }
-
-    pub fn clock_one_instruction(&mut self, bus: &mut Bus) {
-        loop {
-            self.clock(bus);
-            if self.cycles_left == 0 {
-                break;
-            }
-        }
-    }
-
-    /// Perform one clock-cycle worth of emulation. This is not cycle-accurate
-    /// at all. In fact, it does every operation in one cycle and then does
-    /// nothing for the remaining cycles that instruction is supposed to
-    /// take.
-    pub fn clock(&mut self, bus: &mut Bus) {
-        if self.cycles_left > 0 {
-            self.cycles_left -= 1;
-            return;
-        }
-
-        let opcode = self.registers.read_and_bump_pc(bus);
-        self.cycles_left = decode_and_execute(&mut self.registers, bus, opcode) - 1;
-    }
-}
-
 /// Return which of the 256 pages of memory addr resides in.
 fn page_of(addr: u16) -> u16 {
     addr & 0xFF00
@@ -208,12 +305,14 @@ fn page_of(addr: u16) -> u16 {
 
 /// Decode and execute one instruction, returning the number of cycles that
 /// instruction was supposed to take in hardware.
-#[expect(clippy::too_many_lines)]
 fn decode_and_execute(regs: &mut Registers, bus: &mut Bus, opcode: u8) -> u8 {
+    #[expect(clippy::wildcard_imports)]
+    use crate::cpu::instructions::*;
+
     let (base_cycles, extra_cycles) = match opcode {
         0x00 => (7, brk(regs, bus)),
         0x01 => {
-            let a = AddrMode::indirect_indexed(regs, bus);
+            let a = AddrMode::indexed_indirect(regs, bus);
             (6, ora(regs, bus, a))
         }
         0x04 | 0x44 | 0x64 => {
@@ -228,7 +327,7 @@ fn decode_and_execute(regs: &mut Registers, bus: &mut Bus, opcode: u8) -> u8 {
             let a = AddrMode::zero_page(regs, bus);
             (5, asl(regs, bus, a))
         }
-        0x08 => (2, php(regs, bus)),
+        0x08 => (3, php(regs, bus)),
         0x09 => {
             let a = AddrMode::immediate(regs, bus);
             (2, ora(regs, bus, a))
@@ -257,7 +356,7 @@ fn decode_and_execute(regs: &mut Registers, bus: &mut Bus, opcode: u8) -> u8 {
             let a = AddrMode::indirect_indexed(regs, bus);
             (5, ora(regs, bus, a))
         }
-        0x14 | 0x34 | 0x54 | 0x74 => {
+        0x14 | 0x34 | 0x54 | 0x74 | 0xD4 | 0xF4 => {
             AddrMode::zero_page_x(regs, bus);
             (4, nop())
         }
@@ -303,7 +402,7 @@ fn decode_and_execute(regs: &mut Registers, bus: &mut Bus, opcode: u8) -> u8 {
             let a = AddrMode::zero_page(regs, bus);
             (5, rol(regs, bus, a))
         }
-        0x28 => (2, plp(regs, bus)),
+        0x28 => (4, plp(regs, bus)),
         0x29 => {
             let a = AddrMode::immediate(regs, bus);
             (2, and(regs, bus, a))
@@ -479,7 +578,7 @@ fn decode_and_execute(regs: &mut Registers, bus: &mut Bus, opcode: u8) -> u8 {
             let a = AddrMode::absolute_x(regs, bus);
             (7, ror(regs, bus, a))
         }
-        0x80 => {
+        0x80 | 0x82 | 0x89 | 0xC2 | 0xE2 => {
             AddrMode::immediate(regs, bus);
             (2, nop())
         }
@@ -760,6 +859,3 @@ fn decode_and_execute(regs: &mut Registers, bus: &mut Bus, opcode: u8) -> u8 {
     };
     base_cycles + extra_cycles
 }
-
-#[cfg(test)]
-mod tests;

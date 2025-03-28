@@ -1,1 +1,5 @@
 /target
+
+# over 600 MB
+/resources/single_step/
+/resources/*.zst
