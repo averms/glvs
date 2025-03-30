@@ -14,13 +14,13 @@ pub struct Cpu {
 }
 
 #[derive(Debug)]
-struct Registers {
-    pc: u16,
-    sp: u8,
-    a: u8,
-    x: u8,
-    y: u8,
-    ps: Status,
+pub struct Registers {
+    pub pc: u16,
+    pub sp: u8,
+    pub a: u8,
+    pub x: u8,
+    pub y: u8,
+    pub ps: Status,
 }
 
 impl Registers {
@@ -43,7 +43,7 @@ impl Registers {
 /// 7. negative
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
-struct Status(u8);
+pub struct Status(u8);
 
 impl Default for Status {
     fn default() -> Self {
@@ -142,6 +142,12 @@ impl Cpu {
             },
             cycles_left: 0,
         }
+    }
+
+    /// Get a read-only view of the CPU's registers
+    #[must_use]
+    pub fn registers(&self) -> &Registers {
+        &self.registers
     }
 
     /// Execute one instruction. This calls [`Cpu::cycle`] one or more times.
@@ -722,7 +728,7 @@ fn decode_and_execute(regs: &mut Registers, bus: &mut impl Bus, opcode: u8) -> u
             let a = AddrMode::absolute_x(regs, bus);
             (7, inc(regs, bus, a))
         }
-        _ => unimplemented!(),
+        opcode => unimplemented!("0x{opcode:x}"),
     };
     base_cycles + extra_cycles
 }
