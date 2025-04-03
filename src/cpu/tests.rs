@@ -41,7 +41,7 @@ fn opcode_works(test_file: &Path) {
     let text = fs::read_to_string(test_file).unwrap();
     let cases: Box<[Case]> = serde_json::from_str(&text).unwrap();
 
-    let mut bus = Bus::default();
+    let mut bus = TestBus::default();
     for case in cases {
         std::println!("executing {}.", case.name);
         let mut cpu = Cpu {
@@ -74,14 +74,40 @@ fn opcode_works(test_file: &Path) {
     }
 }
 
-fn setup_bus(bus: &mut Bus, data: &[(u16, u8)]) {
+fn setup_bus(bus: &mut TestBus, data: &[(u16, u8)]) {
     for &(addr, val) in data {
         bus.write(addr, val);
     }
 }
 
-fn assert_bus_passed(bus: &Bus, data: &[(u16, u8)]) {
+fn assert_bus_passed(bus: &TestBus, data: &[(u16, u8)]) {
     for &(addr, val) in data {
         assert_eq!(bus.read(addr), val);
+    }
+}
+
+const BUS_SIZE: usize = 64 * 1024;
+
+struct TestBus {
+    ram: Box<[u8; BUS_SIZE]>,
+}
+
+impl Default for TestBus {
+    fn default() -> Self {
+        Self {
+            ram: vec![0; BUS_SIZE]
+                .try_into()
+                .expect("this is the idiom to create arrays on the heap."),
+        }
+    }
+}
+
+impl Bus for TestBus {
+    fn read(&self, addr: u16) -> u8 {
+        self.ram[usize::from(addr)]
+    }
+
+    fn write(&mut self, addr: u16, value: u8) {
+        self.ram[usize::from(addr)] = value;
     }
 }

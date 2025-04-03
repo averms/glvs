@@ -1,4 +1,4 @@
-use nes::{Bus, Cpu};
+use nes::{Bus as _, Cpu, NesBus};
 
 #[test]
 fn easy() {
@@ -11,7 +11,7 @@ fn easy() {
         &[0xA9, 0x08],
         &[0x8D, 0x02, 0x02],
     ];
-    let mut bus = Bus::default();
+    let mut bus = NesBus::default();
     let mut cpu = Cpu::new(0x0600);
 
     setup(&mut bus, &easy);
@@ -24,7 +24,7 @@ fn easy() {
     assert_eq!(0x08, bus.read(0x0202));
 }
 
-fn setup(bus: &mut Bus, program: &[&[u8]]) {
+fn setup(bus: &mut NesBus, program: &[&[u8]]) {
     let mut i = 0;
     for &inst in program {
         for &byte in inst {
