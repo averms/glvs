@@ -1,4 +1,6 @@
-use nes::{Bus as _, Cpu, NesBus};
+use std::fs::File;
+
+use nes::{Bus as _, Cartridge, Cpu, NesBus};
 
 const PROGRAM_START: u16 = 0x0600;
 
@@ -33,4 +35,10 @@ fn setup(program: &[u8]) -> NesBus {
         bus.write(PROGRAM_START + u16::try_from(i).unwrap(), byte);
     }
     bus
+}
+
+#[test]
+fn load_donkey_kong() {
+    let f = File::open("./resources/Donkey Kong (World) (Rev 1).nes").unwrap();
+    _ = Cartridge::new(&f).unwrap();
 }
