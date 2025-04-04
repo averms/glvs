@@ -10,16 +10,16 @@ pub trait Bus {
     fn write(&mut self, addr: u16, value: u8);
 }
 
-const BUS_SIZE: usize = 64 * 1024;
+const CPU_RAM_SIZE: usize = 2048;
 
 pub struct NesBus {
-    ram: Box<[u8; BUS_SIZE]>,
+    cpu_ram: Box<[u8; CPU_RAM_SIZE]>,
 }
 
 impl Default for NesBus {
     fn default() -> Self {
         Self {
-            ram: vec![0; BUS_SIZE]
+            cpu_ram: vec![0; CPU_RAM_SIZE]
                 .try_into()
                 .expect("this is the idiom to create arrays on the heap."),
         }
@@ -27,21 +27,35 @@ impl Default for NesBus {
 }
 
 impl Bus for NesBus {
-    /// Returns the byte corresponding to the address, whether that be in RAM or
-    /// data from another device on the bus.
-    #[must_use]
     fn read(&self, addr: u16) -> u8 {
         match addr {
-            0x0000..=0xFFFF => self.ram[usize::from(addr)],
+            // The CPU's internal memory. Address ranges
+            //
+            // - 0x0800-0x0FFF
+            // - 0x1000-0x17FF
+            // - 0x1800-0x1FFF
+            //
+            // are views of 0x0000-0x7FFF. The NES dev community calls this mirroring,
+            // but there isn't any reflection going on.
+            0x0000..0x2000 => self.cpu_ram[usize::from(mod_2048(addr))],
+
+            _ => unimplemented!(),
         }
     }
 
-    /// Write data on to the bus.
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
-            0x0000..=0xFFFF => self.ram[usize::from(addr)] = value,
+            // The CPU's internal memory.
+            0x0000..=0x2000 => self.cpu_ram[usize::from(mod_2048(addr))] = value,
+
+            _ => unimplemented!(),
         }
     }
+}
+
+/// Calculates x mod 2048. Any number n mod 2^n is equal to n & 2^(n-1).
+fn mod_2048(x: u16) -> u16 {
+    x & 0x07FF
 }
 
 #[cfg(test)]
@@ -49,16 +63,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reading_works() {
+    fn reading1() {
         let bus = NesBus::default();
         assert_eq!(bus.read(0x0000), 0);
         assert_eq!(bus.read(0x1234), 0);
-        assert_eq!(bus.read(0xFFFF), 0);
+        assert_eq!(bus.read(0x1FFF), 0);
     }
 
     #[test]
-    fn writing_works() {
-        let cases = [(0x0000_u16, 127_u8), (0x4321, 150), (0xFFFF, 9)];
+    #[should_panic]
+    fn reading2() {
+        let bus = NesBus::default();
+        _ = bus.read(0x2000);
+    }
+
+    #[test]
+    fn writing() {
+        let cases = [(0x0000_u16, 127_u8), (0x0001, 150), (0x0173, 9)];
 
         let mut bus = NesBus::default();
         for (addr, val) in cases {
@@ -67,5 +88,17 @@ mod tests {
         for (addr, val) in cases {
             assert_eq!(bus.read(addr), val);
         }
+
+        assert_eq!(bus.read(0x0800), cases[0].1);
+        assert_eq!(bus.read(0x1000), cases[0].1);
+        assert_eq!(bus.read(0x1800), cases[0].1);
+
+        assert_eq!(bus.read(0x0801), cases[1].1);
+        assert_eq!(bus.read(0x1001), cases[1].1);
+        assert_eq!(bus.read(0x1801), cases[1].1);
+
+        assert_eq!(bus.read(0x0973), cases[2].1);
+        assert_eq!(bus.read(0x1173), cases[2].1);
+        assert_eq!(bus.read(0x1973), cases[2].1);
     }
 }

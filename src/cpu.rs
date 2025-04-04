@@ -728,7 +728,7 @@ fn decode_and_execute(regs: &mut Registers, bus: &mut impl Bus, opcode: u8) -> u
             let a = AddrMode::absolute_x(regs, bus);
             (7, inc(regs, bus, a))
         }
-        opcode => unimplemented!("0x{opcode:x}"),
+        unknown_opcode => unimplemented!("{unknown_opcode:#x}"),
     };
     base_cycles + extra_cycles
 }

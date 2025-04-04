@@ -12,40 +12,55 @@ serde_json = "1.0.140"
 [profile.test]
 opt-level = 1
 
+[lints.rust]
+non-ascii-idents = "deny"
+unnameable-types = "deny"
+
 [lints.clippy]
 all = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 restriction = { level = "warn", priority = -1 }
 
-# clippy::all allows, can be removed when
-# https://github.com/rust-lang/rust-clippy/pull/14115 is released
-precedence = "allow"
+use-self = "warn"
+redundant-pub-crate = "warn"
+needless-pass-by-ref-mut = "warn"
 
 # clippy::pedantic allows
 too-many-lines = "allow"
 
 # clippy::restriction allows
+absolute-paths = "allow"
 allow-attributes-without-reason = "allow"
 arbitrary-source-item-ordering = "allow"
 arithmetic-side-effects = "allow"
 blanket-clippy-restriction-lints = "allow"
 default-numeric-fallback = "allow"
+exhaustive-structs = "allow"
 expect-used = "allow"
 impl-trait-in-params = "allow"
 implicit-return = "allow"
 indexing-slicing = "allow"
+integer-division = "allow"
+integer-division-remainder-used = "allow"
 little-endian-bytes = "allow"
 min-ident-chars = "allow"
 missing-docs-in-private-items = "allow"
 missing-inline-in-public-items = "allow"
+missing-trait-methods = "allow"
 pattern-type-mismatch = "allow"
+precedence-bits = "allow"
 print-stderr = "allow"
 print-stdout = "allow"
 pub-use = "allow"
 question-mark-used = "allow"
 self-named-module-files = "allow"
 separated-literal-suffix = "allow"
+shadow-reuse = "allow"
+should-panic-without-expect = "allow"
 single-call-fn = "allow"
+std-instead-of-alloc = "allow"
+std-instead-of-core = "allow"
 struct-excessive-bools = "allow"
+tests-outside-test-module = "allow"
 unimplemented = "allow"
 unreachable = "allow"
