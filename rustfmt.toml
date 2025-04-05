@@ -1,0 +1,18 @@
+# Trivial but nice.
+use_field_init_shorthand = true
+
+# Normalize hex literals, just like ruff for Python.
+hex_literal_case = "Upper"
+
+# Format comments and respect Markdown syntax.
+wrap_comments = true
+comment_width = 88
+format_code_in_doc_comments = true
+
+# Merge and group use statements.
+imports_granularity = "Module"
+group_imports = "StdExternalCrate"
+
+# Apparently, rustfmt can fail to format entire sections of code. This warns us when
+# that happens.
+error_on_line_overflow = true
