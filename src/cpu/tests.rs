@@ -5,6 +5,7 @@ use serde::Deserialize;
 use serde::de::IgnoredAny;
 
 use crate::bus::Bus;
+use crate::cpu::addressing::AddrMode;
 use crate::cpu::{Cpu, Registers, Status};
 
 #[derive(Debug, Deserialize)]
@@ -25,6 +26,15 @@ struct State {
     y: u8,
     p: u8,
     ram: Box<[(u16, u8)]>,
+}
+
+#[test]
+#[should_panic]
+fn store_to_immediate() {
+    let mut bus = TestBus::default();
+    let mut cpu = Cpu::new(0);
+    let a = AddrMode::immediate(&mut cpu.registers, &mut bus);
+    a.store(&mut cpu.registers, &mut bus, 0);
 }
 
 #[test]
