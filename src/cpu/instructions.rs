@@ -462,7 +462,11 @@ pub fn bvs(regs: &mut Registers, bus: &impl Bus, m: AddrMode) -> u8 {
 fn branch(regs: &mut Registers, operand: u8) -> u8 {
     let offset = i8::from_le_bytes([operand]);
     let new_pc = regs.pc.wrapping_add_signed(offset.into());
-    let extra_cycles_taken = if page_of(regs.pc) == page_of(new_pc) { 1 } else { 2 };
+    let extra_cycles_taken = if page_of(regs.pc) == page_of(new_pc) {
+        1
+    } else {
+        2
+    };
     regs.pc = new_pc;
     extra_cycles_taken
 }
