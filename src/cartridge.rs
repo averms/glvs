@@ -1,15 +1,25 @@
 use std::io::Read;
 
-use crate::NesError;
+use crate::util::NesError;
+
+pub const CHR_ROM_SIZE: u16 = 8 * 1024;
+pub const PRG_ROM_SIZE: u16 = 16 * 1024;
 
 #[derive(Debug)]
 pub struct Cartridge {
     prg: Box<[u8]>,
     chr: Box<[u8]>,
+    nmtable_mirroring: Orientation,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Orientation {
+    Horizontal,
+    Vertical,
 }
 
 impl Cartridge {
-    /// Read an NES ROM file. Currently this supports a subset of the iNES format.
+    /// Read an NES ROM file. Currently, this supports a subset of the iNES format.
     ///
     /// # Errors
     ///
@@ -39,22 +49,41 @@ impl Cartridge {
             return Err(NesError::RomParsing);
         }
 
-        let mut prg = vec![0; 16 * 1024].into_boxed_slice();
+        let nmtable_mirroring = if header[6] & (1 << 0) != 0 {
+            Orientation::Vertical
+        } else {
+            Orientation::Horizontal
+        };
+
+        let mut prg = vec![0; usize::from(PRG_ROM_SIZE)].into_boxed_slice();
         r.read_exact(&mut prg)?;
 
-        let mut chr = vec![0; 8 * 1024].into_boxed_slice();
+        let mut chr = vec![0; usize::from(CHR_ROM_SIZE)].into_boxed_slice();
         r.read_exact(&mut chr)?;
 
-        Ok(Self { prg, chr })
+        Ok(Self {
+            prg,
+            chr,
+            nmtable_mirroring,
+        })
     }
 
     #[must_use]
-    pub fn prg_chunks_count(&self) -> usize {
-        self.prg.len() / (16 * 1024)
+    pub fn chr(&self) -> &[u8] {
+        &self.chr
     }
 
     #[must_use]
-    pub fn chr_chunks_count(&self) -> usize {
-        self.chr.len() / (8 * 1024)
+    pub fn prg(&self) -> &[u8] {
+        &self.prg
+    }
+
+    #[cfg(test)]
+    pub fn debug_default() -> Self {
+        Self {
+            prg: vec![0; usize::from(PRG_ROM_SIZE)].into_boxed_slice(),
+            chr: vec![0; usize::from(CHR_ROM_SIZE)].into_boxed_slice(),
+            nmtable_mirroring: Orientation::Horizontal,
+        }
     }
 }

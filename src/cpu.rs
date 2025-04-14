@@ -147,12 +147,6 @@ impl Cpu {
         }
     }
 
-    /// Get a read-only view of the CPU's registers
-    #[must_use]
-    pub fn registers(&self) -> &Registers {
-        &self.registers
-    }
-
     /// Execute one instruction. This calls [`Cpu::cycle`] one or more times.
     pub fn one_instruction(&mut self, bus: &mut impl Bus) {
         loop {
