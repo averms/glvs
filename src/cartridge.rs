@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::{BufReader, Read as _};
+use std::io::Read;
 
 use crate::NesError;
 
@@ -14,12 +13,11 @@ impl Cartridge {
     ///
     /// # Errors
     ///
-    /// Returns an [`NesError`].
-    pub fn new(f: &File) -> Result<Self, NesError> {
-        let mut reader = BufReader::with_capacity(64 * 1024, f);
-
+    /// Returns an [`NesError::RomParsing`] if the ROM file couldn't be parsed and an
+    /// [`NesError::Io`] if there was an I/O error.
+    pub fn new(mut r: impl Read) -> Result<Self, NesError> {
         let mut header = [0_u8; 16];
-        reader.read_exact(&mut header)?;
+        r.read_exact(&mut header)?;
 
         // magic bytes
         if &header[..4] != b"NES\x1A" {
@@ -42,10 +40,10 @@ impl Cartridge {
         }
 
         let mut prg = vec![0; 16 * 1024].into_boxed_slice();
-        reader.read_exact(&mut prg)?;
+        r.read_exact(&mut prg)?;
 
         let mut chr = vec![0; 8 * 1024].into_boxed_slice();
-        reader.read_exact(&mut chr)?;
+        r.read_exact(&mut chr)?;
 
         Ok(Self { prg, chr })
     }
