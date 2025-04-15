@@ -29,7 +29,7 @@ impl Default for NesBus {
 impl Bus for NesBus {
     fn read(&self, addr: u16) -> u8 {
         match addr {
-            // The CPU's internal memory. Address ranges
+            // The CPU's internal memory. The first 8 KiB, meaning address ranges
             //
             // - 0x0800-0x0FFF
             // - 0x1000-0x17FF
@@ -46,7 +46,7 @@ impl Bus for NesBus {
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
             // The CPU's internal memory.
-            0x0000..=0x2000 => self.cpu_ram[usize::from(mod_2048(addr))] = value,
+            0x0000..0x2000 => self.cpu_ram[usize::from(mod_2048(addr))] = value,
 
             _ => unimplemented!(),
         }
@@ -71,7 +71,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "not implemented"]
     fn reading2() {
         let bus = NesBus::default();
         _ = bus.read(0x2000);
@@ -100,5 +100,12 @@ mod tests {
         assert_eq!(bus.read(0x0973), cases[2].1);
         assert_eq!(bus.read(0x1173), cases[2].1);
         assert_eq!(bus.read(0x1973), cases[2].1);
+    }
+
+    #[test]
+    #[should_panic = "not implemented"]
+    fn writing2() {
+        let mut bus = NesBus::default();
+        _ = bus.write(0x2000, 255);
     }
 }
