@@ -26,6 +26,8 @@ redundant-pub-crate = "warn"
 needless-pass-by-ref-mut = "warn"
 
 # clippy::pedantic allows
+many-single-char-names = "allow"
+missing-panics-doc = "allow"
 too-many-lines = "allow"
 
 # clippy::restriction allows
@@ -33,6 +35,7 @@ absolute-paths = "allow"
 allow-attributes-without-reason = "allow"
 arbitrary-source-item-ordering = "allow"
 arithmetic-side-effects = "allow"
+as-conversions = "allow"
 blanket-clippy-restriction-lints = "allow"
 default-numeric-fallback = "allow"
 exhaustive-structs = "allow"
@@ -64,3 +67,5 @@ struct-excessive-bools = "allow"
 tests-outside-test-module = "allow"
 unimplemented = "allow"
 unreachable = "allow"
+unwrap-in-result = "allow"
+wildcard-enum-match-arm = "allow"
