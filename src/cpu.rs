@@ -42,7 +42,6 @@ impl Registers {
 /// 6. overflow
 /// 7. negative
 #[derive(Debug, Clone, Copy)]
-#[repr(transparent)]
 pub struct Status(u8);
 
 impl Default for Status {
