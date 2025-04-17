@@ -33,7 +33,7 @@ struct State {
 fn store_to_immediate() {
     let mut bus = TestBus::default();
     let mut cpu = Cpu::new(0);
-    let a = AddrMode::immediate(&mut cpu.registers, &mut bus);
+    let a = AddrMode::immediate(&mut cpu.registers, &bus);
     a.store(&mut cpu.registers, &mut bus, 0);
 }
 

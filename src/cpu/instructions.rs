@@ -117,7 +117,7 @@ pub fn txs(regs: &mut Registers) -> u8 {
 // Arithmetic instructions.
 
 pub fn adc(regs: &mut Registers, bus: &impl Bus, m: AddrMode) -> u8 {
-    let carry_in: u8 = regs.ps.carry().into();
+    let carry_in = u8::from(regs.ps.carry());
     let operand = m.load(regs, bus);
 
     let (result1, carry1) = regs.a.overflowing_add(operand);
@@ -138,7 +138,7 @@ pub fn adc(regs: &mut Registers, bus: &impl Bus, m: AddrMode) -> u8 {
 }
 
 pub fn sbc(regs: &mut Registers, bus: &impl Bus, m: AddrMode) -> u8 {
-    let borrow_in: u8 = (!regs.ps.carry()).into();
+    let borrow_in = u8::from(!regs.ps.carry());
     let operand = m.load(regs, bus);
 
     let (result1, borrowed1) = regs.a.overflowing_sub(operand);

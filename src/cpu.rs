@@ -55,20 +55,24 @@ impl Default for Status {
 impl Status {
     // Getters.
     fn carry(self) -> bool {
-        self.0 & (1 << 0) != 0
+        self.bit(0)
     }
     fn zero(self) -> bool {
-        self.0 & (1 << 1) != 0
+        self.bit(1)
     }
     #[expect(dead_code)]
     fn interrupt(self) -> bool {
-        self.0 & (1 << 2) != 0
+        self.bit(2)
     }
     fn overflow(self) -> bool {
-        self.0 & (1 << 6) != 0
+        self.bit(6)
     }
     fn negative(self) -> bool {
-        self.0 & (1 << 7) != 0
+        self.bit(7)
+    }
+
+    fn bit(self, i: u8) -> bool {
+        self.0 & (1 << i) != 0
     }
 
     // Setters.
@@ -124,7 +128,7 @@ impl Status {
     }
 
     fn from_popped(value: u8) -> Self {
-        Self(value & 0b1100_1111 | (1 << 5))
+        Self(value & 0b1110_1111 | (1 << 5))
     }
 }
 
