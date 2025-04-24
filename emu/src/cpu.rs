@@ -6,10 +6,11 @@ mod instructions;
 mod tests;
 
 use crate::bus::Bus;
+use crate::util;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Cpu {
-    registers: Registers,
+    regs: Registers,
     cycles_left: u8,
 }
 
@@ -23,8 +24,22 @@ pub struct Registers {
     pub ps: Status,
 }
 
+impl Default for Registers {
+    fn default() -> Self {
+        Self {
+            pc: 0,
+            sp: 0xFD,
+            a: 0,
+            x: 0,
+            y: 0,
+            // according to blargg's cpu_reset test ROM.
+            ps: Status(0b0011_0100),
+        }
+    }
+}
+
 impl Registers {
-    fn read_and_bump_pc(&mut self, bus: &impl Bus) -> u8 {
+    fn read_and_bump_pc(&mut self, bus: &mut impl Bus) -> u8 {
         let current_pc = self.pc;
         self.pc = self.pc.wrapping_add(1);
         bus.read(current_pc)
@@ -35,7 +50,7 @@ impl Registers {
 ///
 /// 0. carry
 /// 1. zero
-/// 2. interrupt
+/// 2. interrupt disable
 /// 3. decimal (not actually supported but can be set)
 /// 4. break (unused)
 /// 5. (unused, always pushed as 1)
@@ -44,34 +59,22 @@ impl Registers {
 #[derive(Debug, Clone, Copy)]
 pub struct Status(u8);
 
-impl Default for Status {
-    fn default() -> Self {
-        // according to blargg's cpu_reset test ROM.
-        Self(0b0011_0100)
-    }
-}
-
 impl Status {
     // Getters.
     fn carry(self) -> bool {
-        self.bit(0)
+        util::bit(self.0, 0)
     }
     fn zero(self) -> bool {
-        self.bit(1)
+        util::bit(self.0, 1)
     }
-    #[expect(dead_code)]
     fn interrupt(self) -> bool {
-        self.bit(2)
+        util::bit(self.0, 2)
     }
     fn overflow(self) -> bool {
-        self.bit(6)
+        util::bit(self.0, 6)
     }
     fn negative(self) -> bool {
-        self.bit(7)
-    }
-
-    fn bit(self, i: u8) -> bool {
-        self.0 & (1 << i) != 0
+        util::bit(self.0, 7)
     }
 
     // Setters.
@@ -123,27 +126,30 @@ impl Status {
     }
 
     fn to_pushable(self) -> u8 {
-        self.0 | 0b0011_0000
+        self.0
     }
-
     fn from_popped(value: u8) -> Self {
         Self(value & 0b1110_1111 | (1 << 5))
     }
 }
 
 impl Cpu {
+    /// Create a new `Cpu` with initial state as described in
+    /// <https://www.nesdev.org/wiki/CPU_power_up_state>.
     #[must_use]
-    pub fn new(pc: u16) -> Self {
+    pub fn new(bus: &mut impl Bus) -> Self {
+        const PC_BASE: u16 = 0xFFFC;
+
+        let low = bus.read(PC_BASE);
+        let high = bus.read(PC_BASE + 1);
+        let pc = u16::from_le_bytes([low, high]);
+
         Self {
-            registers: Registers {
+            regs: Registers {
                 pc,
-                sp: 0xFD,
-                a: 0,
-                x: 0,
-                y: 0,
-                ps: Status::default(),
+                ..Default::default()
             },
-            cycles_left: 0,
+            ..Default::default()
         }
     }
 
@@ -167,17 +173,33 @@ impl Cpu {
             return;
         }
 
-        let opcode = self.registers.read_and_bump_pc(bus);
-        self.cycles_left = decode_and_execute(&mut self.registers, bus, opcode) - 1;
+        let opcode = self.regs.read_and_bump_pc(bus);
+        self.cycles_left = decode_and_execute(&mut self.regs, bus, opcode) - 1;
+    }
+
+    pub fn nmi(&mut self, bus: &mut impl Bus) {
+        const NMI_BASE: u16 = 0xFFFA;
+
+        let [low, high] = self.regs.pc.to_le_bytes();
+        instructions::stack_push(&mut self.regs, bus, high);
+        instructions::stack_push(&mut self.regs, bus, low);
+        let pushable_status = self.regs.ps.to_pushable() & !(1 << 4);
+        instructions::stack_push(&mut self.regs, bus, pushable_status);
+        self.regs.ps.set_interrupt(true);
+        let irq_low = bus.read(NMI_BASE);
+        let irq_high = bus.read(NMI_BASE + 1);
+        self.regs.pc = u16::from_le_bytes([irq_low, irq_high]);
+
+        self.cycles_left = 8;
     }
 }
 
 /// Decode and execute one instruction, returning the number of cycles that
 /// instruction was supposed to take in hardware.
 fn decode_and_execute(regs: &mut Registers, bus: &mut impl Bus, opcode: u8) -> u8 {
-    use crate::cpu::addressing::{AddrMode, jump_absolute, jump_indirect};
+    use addressing::{AddrMode, jump_absolute, jump_indirect};
     #[expect(clippy::wildcard_imports)]
-    use crate::cpu::instructions::*;
+    use instructions::*;
 
     let (base_cycles, extra_cycles) = match opcode {
         0x00 => (7, brk(regs, bus)),

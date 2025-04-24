@@ -1,4 +1,4 @@
-//! Misc. video stuff.
+//! Color-related definitions and constants.
 
 #[derive(Debug, Clone, Copy)]
 pub struct Rgb8(pub u8, pub u8, pub u8);

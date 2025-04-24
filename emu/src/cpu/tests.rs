@@ -32,9 +32,9 @@ struct State {
 #[should_panic]
 fn store_to_immediate() {
     let mut bus = TestBus::default();
-    let mut cpu = Cpu::new(0);
-    let a = AddrMode::immediate(&mut cpu.registers, &bus);
-    a.store(&mut cpu.registers, &mut bus, 0);
+    let mut cpu = Cpu::default();
+    let a = AddrMode::immediate(&mut cpu.regs, &mut bus);
+    a.store(&mut cpu.regs, &mut bus, 0);
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn opcode_works(test_file: &Path) {
     for case in cases {
         std::println!("executing {}.", case.name);
         let mut cpu = Cpu {
-            registers: Registers {
+            regs: Registers {
                 pc: case.initial.pc,
                 sp: case.initial.s,
                 a: case.initial.a,
@@ -74,13 +74,13 @@ fn opcode_works(test_file: &Path) {
         }
 
         assert_eq!(usize::from(got_cycles), case.cycles.len());
-        assert_eq!(cpu.registers.pc, case.final_.pc);
-        assert_eq!(cpu.registers.a, case.final_.a);
-        assert_eq!(cpu.registers.x, case.final_.x);
-        assert_eq!(cpu.registers.y, case.final_.y);
-        assert_eq!(cpu.registers.sp, case.final_.s);
-        assert_eq!(cpu.registers.ps.0, case.final_.p);
-        assert_bus_passed(&bus, &case.final_.ram);
+        assert_eq!(cpu.regs.pc, case.final_.pc);
+        assert_eq!(cpu.regs.a, case.final_.a);
+        assert_eq!(cpu.regs.x, case.final_.x);
+        assert_eq!(cpu.regs.y, case.final_.y);
+        assert_eq!(cpu.regs.sp, case.final_.s);
+        assert_eq!(cpu.regs.ps.0, case.final_.p);
+        assert_bus_passed(&mut bus, &case.final_.ram);
     }
 }
 
@@ -90,7 +90,7 @@ fn setup_bus(bus: &mut TestBus, data: &[(u16, u8)]) {
     }
 }
 
-fn assert_bus_passed(bus: &TestBus, data: &[(u16, u8)]) {
+fn assert_bus_passed(bus: &mut TestBus, data: &[(u16, u8)]) {
     for &(addr, val) in data {
         assert_eq!(bus.read(addr), val);
     }
@@ -113,7 +113,7 @@ impl Default for TestBus {
 }
 
 impl Bus for TestBus {
-    fn read(&self, addr: u16) -> u8 {
+    fn read(&mut self, addr: u16) -> u8 {
         self.ram[usize::from(addr)]
     }
 

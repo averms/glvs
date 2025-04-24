@@ -23,3 +23,7 @@ impl From<io::Error> for NesError {
         Self::Io(value.kind())
     }
 }
+
+pub fn bit(byte: u8, bit: u8) -> bool {
+    byte >> bit & 1 != 0
+}

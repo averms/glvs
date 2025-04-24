@@ -20,7 +20,7 @@ pub enum AddrMode {
 // TODO: maybe implement this as a trait and the instructions as generic to allow for
 // monomorphization.
 impl AddrMode {
-    pub fn load(self, regs: &Registers, bus: &impl Bus) -> u8 {
+    pub fn load(self, regs: &Registers, bus: &mut impl Bus) -> u8 {
         match self {
             Self::Immediate(value) => value,
             Self::Accumulator => regs.a,
@@ -47,38 +47,38 @@ impl AddrMode {
 
     // Constructors.
 
-    pub fn relative(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn relative(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         Self::immediate(regs, bus)
     }
 
-    pub fn immediate(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn immediate(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         Self::Immediate(regs.read_and_bump_pc(bus))
     }
 
-    pub fn zero_page(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn zero_page(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         Self::Memory(regs.read_and_bump_pc(bus).into(), false)
     }
 
-    pub fn zero_page_y(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn zero_page_y(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         let base = regs.read_and_bump_pc(bus);
         let zero_page_addr = base.wrapping_add(regs.y);
         Self::Memory(zero_page_addr.into(), false)
     }
 
-    pub fn zero_page_x(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn zero_page_x(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         let base = regs.read_and_bump_pc(bus);
         let zero_page_addr = base.wrapping_add(regs.x);
         Self::Memory(zero_page_addr.into(), false)
     }
 
-    pub fn absolute(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn absolute(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         let low = regs.read_and_bump_pc(bus);
         let high = regs.read_and_bump_pc(bus);
         let addr = u16::from_le_bytes([low, high]);
         Self::Memory(addr, false)
     }
 
-    pub fn absolute_x(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn absolute_x(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         let low = regs.read_and_bump_pc(bus);
         let high = regs.read_and_bump_pc(bus);
         let base = u16::from_le_bytes([low, high]);
@@ -87,7 +87,7 @@ impl AddrMode {
         Self::Memory(addr, page_crossed)
     }
 
-    pub fn absolute_y(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn absolute_y(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         let low = regs.read_and_bump_pc(bus);
         let high = regs.read_and_bump_pc(bus);
         let base = u16::from_le_bytes([low, high]);
@@ -96,7 +96,7 @@ impl AddrMode {
         Self::Memory(addr, page_crossed)
     }
 
-    pub fn indirect_indexed(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn indirect_indexed(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         let zero_page_ptr = regs.read_and_bump_pc(bus);
         let low = bus.read(zero_page_ptr.into());
         let high = bus.read(zero_page_ptr.wrapping_add(1).into());
@@ -106,7 +106,7 @@ impl AddrMode {
         Self::Memory(addr, page_crossed)
     }
 
-    pub fn indexed_indirect(regs: &mut Registers, bus: &impl Bus) -> Self {
+    pub fn indexed_indirect(regs: &mut Registers, bus: &mut impl Bus) -> Self {
         let ptr_base = regs.read_and_bump_pc(bus);
         let ptr = ptr_base.wrapping_add(regs.x);
         let low = bus.read(ptr.into());
@@ -116,7 +116,7 @@ impl AddrMode {
     }
 }
 
-pub fn jump_indirect(regs: &mut Registers, bus: &impl Bus) -> u16 {
+pub fn jump_indirect(regs: &mut Registers, bus: &mut impl Bus) -> u16 {
     let ptr_low = regs.read_and_bump_pc(bus);
     let ptr_high = regs.read_and_bump_pc(bus);
     // replicate 6502 bug where the high byte of the address can be fetched from the
@@ -126,7 +126,7 @@ pub fn jump_indirect(regs: &mut Registers, bus: &impl Bus) -> u16 {
     u16::from_le_bytes([low, high])
 }
 
-pub fn jump_absolute(regs: &mut Registers, bus: &impl Bus) -> u16 {
+pub fn jump_absolute(regs: &mut Registers, bus: &mut impl Bus) -> u16 {
     let low = regs.read_and_bump_pc(bus);
     let high = regs.read_and_bump_pc(bus);
     u16::from_le_bytes([low, high])

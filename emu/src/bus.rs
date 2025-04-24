@@ -1,6 +1,5 @@
-//! Owns the memory bus and handles memory mapping.
-
-use crate::cartridge::{CHR_ROM_SIZE, Cartridge, PRG_ROM_SIZE};
+use crate::cartridge::{Cartridge, PRG_ROM_SIZE};
+use crate::ppu::{Canvas, Ppu, RegisterKind};
 use crate::util::NesError;
 
 const CPU_RAM_SIZE: u16 = 2 * 1024;
@@ -10,47 +9,70 @@ pub trait Bus {
     /// Returns the byte corresponding to the address, whether that be in RAM or
     /// data from another device on the bus.
     #[must_use]
-    fn read(&self, addr: u16) -> u8;
+    fn read(&mut self, addr: u16) -> u8;
 
     /// Write data on to the bus.
     fn write(&mut self, addr: u16, value: u8);
 }
 
-/// The PPU bus.
-pub trait PpuBus {
-    /// Returns the byte corresponding to the address, whether that be in RAM or
-    /// data from another device on the bus.
-    #[must_use]
-    fn ppu_read(&self, addr: u16) -> u8;
-
-    /// Write data on to the bus.
-    fn ppu_write(&mut self, addr: u16, value: u8);
-}
-
+/// Owns the memory bus, PPU, and APU. Also handles memory mapping.
 #[derive(Debug)]
 pub struct NesBus {
     cpu_ram: Box<[u8; CPU_RAM_SIZE as usize]>,
-    rom: Cartridge,
+    cart: Cartridge,
+    ppu: Ppu,
+    controller_latches: [u8; 2],
+    pub controllers: [u8; 2],
 }
 
 impl NesBus {
-    /// Create a new `NesBus`. This is a pretty central struct that owns a lot of data.
+    /// Create a new `NesBus`. `rom_data` must include an iNES header.
     ///
     /// # Errors
     /// When `rom_data` fails to be parsed.
     pub fn new(rom_data: &[u8]) -> Result<Self, NesError> {
+        let cart = Cartridge::new(rom_data)?;
+        let ppu = Ppu::new(&cart);
+
         Ok(Self {
             cpu_ram: vec![0; usize::from(CPU_RAM_SIZE)]
                 .try_into()
                 .expect("boxed array idiom should work"),
-            rom: Cartridge::new(rom_data)?,
+            cart,
+            ppu,
+            controller_latches: [0; 2],
+            controllers: [0; 2],
         })
+    }
+
+    /// Perform one clock-cycle worth of emulation.
+    pub fn cycle(&mut self, canvas: &mut impl Canvas) {
+        self.ppu.cycle(&self.cart, canvas);
+    }
+
+    #[must_use]
+    pub fn frame_complete(&self) -> bool {
+        self.ppu.frame_complete
+    }
+
+    pub fn set_frame_complete(&mut self, value: bool) {
+        self.ppu.frame_complete = value;
+    }
+
+    #[must_use]
+    pub fn ack_nmi(&mut self) -> bool {
+        if self.ppu.nmi {
+            self.ppu.nmi = false;
+            true
+        } else {
+            false
+        }
     }
 }
 
 /// This implementation supports only NROM-128 mappers.
 impl Bus for NesBus {
-    fn read(&self, addr: u16) -> u8 {
+    fn read(&mut self, addr: u16) -> u8 {
         match addr {
             // The CPU's internal memory. The first 8 KiB, meaning address ranges
             //
@@ -62,42 +84,68 @@ impl Bus for NesBus {
             // but there isn't any reflection going on.
             0x0000..0x2000 => self.cpu_ram[usize::from(addr % CPU_RAM_SIZE)],
 
-            0x2000..0x4000 => todo!("ppu regs"),
+            0x2000..0x4000 => self.ppu.read_register(
+                &self.cart,
+                match (addr - 0x2000) % 8 {
+                    0 => RegisterKind::Ctrl,
+                    1 => RegisterKind::Mask,
+                    2 => RegisterKind::Status,
+                    3 => RegisterKind::OamAddr,
+                    4 => RegisterKind::OamData,
+                    5 => RegisterKind::Scroll,
+                    6 => RegisterKind::Addr,
+                    7 => RegisterKind::Data,
+                    _ => unreachable!(),
+                },
+            ),
 
-            0x4000..0x4018 => todo!("apu and i/o"),
+            0x4000..0x4016 => {
+                // todo
+                0
+            }
 
-            0x8000..=0xFFFF => self.rom.prg()[usize::from((addr - 0x8000) % PRG_ROM_SIZE)],
+            0x4016 | 0x4017 => {
+                let i = usize::from((addr - 0x4016) % 2);
+                let result = self.controller_latches[i] >> 7;
+                self.controller_latches[i] <<= 1;
+                result
+            }
 
-            _ => unimplemented!(),
+            0x8000..=0xFFFF => self.cart.prg()[usize::from((addr - 0x8000) % PRG_ROM_SIZE)],
+
+            _ => unimplemented!("read from open bus"),
         }
     }
 
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
-            // The CPU's internal memory.
             0x0000..0x2000 => self.cpu_ram[usize::from(addr % CPU_RAM_SIZE)] = value,
 
-            0x2000..0x4000 => todo!("ppu regs"),
+            0x2000..0x4000 => self.ppu.write_register(
+                match (addr - 0x2000) % 8 {
+                    0 => RegisterKind::Ctrl,
+                    1 => RegisterKind::Mask,
+                    2 => RegisterKind::Status,
+                    3 => RegisterKind::OamAddr,
+                    4 => RegisterKind::OamData,
+                    5 => RegisterKind::Scroll,
+                    6 => RegisterKind::Addr,
+                    7 => RegisterKind::Data,
+                    _ => unreachable!(),
+                },
+                value,
+            ),
 
-            0x4000..0x4018 => todo!("apu and i/o"),
+            0x4000..0x4016 => {
+                // todo
+            }
 
-            _ => unimplemented!(),
-        }
-    }
-}
+            0x4016 | 0x4017 => {
+                let i = usize::from(addr % 2);
+                self.controller_latches[i] = self.controllers[i];
+            }
 
-impl PpuBus for NesBus {
-    fn ppu_read(&self, addr: u16) -> u8 {
-        match addr {
-            0x0000..CHR_ROM_SIZE => self.rom.chr()[usize::from(addr)],
-            _ => unimplemented!(),
-        }
-    }
-
-    fn ppu_write(&mut self, addr: u16, value: u8) {
-        match addr {
-            0x0000..CHR_ROM_SIZE => unimplemented!(),
-            _ => unimplemented!(),
+            _ => unimplemented!("write to open bus"),
         }
     }
 }
@@ -107,18 +155,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reading1() {
-        let bus = debug_bus();
+    fn reading() {
+        let mut bus = debug_bus();
         assert_eq!(bus.read(0x0000), 0);
         assert_eq!(bus.read(0x1234), 0);
         assert_eq!(bus.read(0x1FFF), 0);
-    }
-
-    #[test]
-    #[should_panic = "not yet implemented"]
-    fn reading2() {
-        let bus = debug_bus();
-        _ = bus.read(0x2000);
     }
 
     #[test]
@@ -146,19 +187,18 @@ mod tests {
         assert_eq!(bus.read(0x1973), cases[2].1);
     }
 
-    #[test]
-    #[should_panic = "not yet implemented"]
-    fn writing2() {
-        let mut bus = debug_bus();
-        bus.write(0x2000, 255);
-    }
-
     fn debug_bus() -> NesBus {
+        let cart = Cartridge::debug_default();
+        let ppu = Ppu::new(&cart);
+
         NesBus {
             cpu_ram: vec![0; usize::from(CPU_RAM_SIZE)]
                 .try_into()
                 .expect("boxed array idiom should work"),
-            rom: Cartridge::debug_default(),
+            cart,
+            ppu,
+            controller_latches: [0; 2],
+            controllers: [0; 2],
         }
     }
 }

@@ -13,7 +13,7 @@ pub struct Cartridge {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Orientation {
+pub enum Orientation {
     Horizontal,
     Vertical,
 }
@@ -76,6 +76,10 @@ impl Cartridge {
     #[must_use]
     pub fn prg(&self) -> &[u8] {
         &self.prg
+    }
+
+    pub fn nmtable_mirroring(&self) -> Orientation {
+        self.nmtable_mirroring
     }
 
     #[cfg(test)]
