@@ -1,6 +1,6 @@
 use std::fs;
 
-use nes::{Cpu, NesBus};
+use emu::{Cpu, NesBus};
 
 #[test]
 fn load_donkey_kong() {
