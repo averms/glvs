@@ -1,5 +1,6 @@
 use std::thread;
 use std::time::Duration;
+
 use emu::{Canvas, NesBus, Ppu};
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
