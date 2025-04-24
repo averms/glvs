@@ -24,6 +24,7 @@ fn main() -> Result<(), anyhow::Error> {
         .build()?;
 
     // Fix window sizing on macOS. See https://wiki.libsdl.org/SDL3/README/highdpi.
+    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let integer_pixel_density = {
         let p = window.pixel_density();
         if p.fract() != 0.0 {
