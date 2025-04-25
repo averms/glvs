@@ -1,4 +1,4 @@
-//! CPU implementation.
+//! Emulates the MOS 6502 processor included in the 2A03.
 
 mod addressing;
 mod instructions;
