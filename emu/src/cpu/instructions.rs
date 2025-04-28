@@ -21,11 +21,6 @@
 //! - Add one cycle on branch instructions if the branch was taken.
 //! - Add another cycle on branch instructions if we jumped across a page boundary.
 
-#![expect(
-    clippy::if_not_else,
-    reason = "more readable to express the branch instructions this way."
-)]
-
 use crate::bus::Bus;
 use crate::cpu::addressing::AddrMode;
 use crate::cpu::{Registers, Status};

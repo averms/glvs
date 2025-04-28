@@ -23,6 +23,7 @@ redundant-pub-crate = "warn"
 needless-pass-by-ref-mut = "warn"
 
 # clippy::pedantic allows
+if-not-else = "allow"
 many-single-char-names = "allow"
 missing-panics-doc = "allow"
 too-many-lines = "allow"
