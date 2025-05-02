@@ -1,6 +1,7 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
+use anyhow::Context;
 use emu::{Canvas, Cpu, NesBus};
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
@@ -14,12 +15,15 @@ const SCALING_FACTOR: u16 = 4;
 const FRAME_TIME: Duration = Duration::from_nanos(16_666_667);
 
 fn main() -> Result<(), anyhow::Error> {
-    let mut bus = NesBus::new(&std::fs::read("./resources/dk.nes")?)?;
+    let rom_path = std::env::args().nth(1).context("no rom path given")?;
+    let mut bus = NesBus::new(&std::fs::read(rom_path)?)?;
     let cpu = Cpu::new(&mut bus);
     let mut emu = Emulator {
         bus,
         cpu,
         ppu_cycle_count: 0,
+        perform_dma: false,
+        dma_data: 0,
     };
 
     let sdl_context = sdl3::init()?;
@@ -67,41 +71,34 @@ fn main() -> Result<(), anyhow::Error> {
                     ..
                 } => return Ok(()),
 
-                Event::KeyDown {
-                    keycode: Some(Keycode::Right),
-                    ..
-                } => emu.bus.controllers[0] |= 1 << 0,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Left),
-                    ..
-                } => emu.bus.controllers[0] |= 1 << 1,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Down),
-                    ..
-                } => emu.bus.controllers[0] |= 1 << 2,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Up),
-                    ..
-                } => emu.bus.controllers[0] |= 1 << 3,
-                Event::KeyDown {
-                    keycode: Some(Keycode::C),
-                    ..
-                } => emu.bus.controllers[0] |= 1 << 4,
-                Event::KeyDown {
-                    keycode: Some(Keycode::V),
-                    ..
-                } => emu.bus.controllers[0] |= 1 << 5,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Z),
-                    ..
-                } => emu.bus.controllers[0] |= 1 << 6,
-                Event::KeyDown {
-                    keycode: Some(Keycode::X),
-                    ..
-                } => emu.bus.controllers[0] |= 1 << 7,
-
                 _ => {}
             }
+        }
+
+        let keyboard_state = event_pump.keyboard_state();
+        if keyboard_state.is_scancode_pressed(sdl3::keyboard::Scancode::Right) {
+            emu.bus.controllers[0] |= 1 << 0;
+        }
+        if keyboard_state.is_scancode_pressed(sdl3::keyboard::Scancode::Left) {
+            emu.bus.controllers[0] |= 1 << 1;
+        }
+        if keyboard_state.is_scancode_pressed(sdl3::keyboard::Scancode::Down) {
+            emu.bus.controllers[0] |= 1 << 2;
+        }
+        if keyboard_state.is_scancode_pressed(sdl3::keyboard::Scancode::Up) {
+            emu.bus.controllers[0] |= 1 << 3;
+        }
+        if keyboard_state.is_scancode_pressed(sdl3::keyboard::Scancode::W) {
+            emu.bus.controllers[0] |= 1 << 4;
+        }
+        if keyboard_state.is_scancode_pressed(sdl3::keyboard::Scancode::Q) {
+            emu.bus.controllers[0] |= 1 << 5;
+        }
+        if keyboard_state.is_scancode_pressed(sdl3::keyboard::Scancode::A) {
+            emu.bus.controllers[0] |= 1 << 6;
+        }
+        if keyboard_state.is_scancode_pressed(sdl3::keyboard::Scancode::S) {
+            emu.bus.controllers[0] |= 1 << 7;
         }
 
         let mut canvas_for_ppu = MyCanvas(canvas);
@@ -127,14 +124,35 @@ struct Emulator {
     bus: NesBus,
     cpu: Cpu,
     ppu_cycle_count: u64,
+    perform_dma: bool,
+    dma_data: u8,
 }
 
 impl Emulator {
     fn tick(&mut self, canvas: &mut impl Canvas) {
         self.bus.cycle(canvas);
+
         if self.ppu_cycle_count % 3 == 0 {
-            self.cpu.cycle(&mut self.bus);
+            if self.bus.in_dma_transfer {
+                if !self.perform_dma {
+                    // if we're in an odd cycle we can start DMAing next cycle.
+                    self.perform_dma = self.ppu_cycle_count % 2 == 1;
+                } else {
+                    match self.ppu_cycle_count % 2 {
+                        0 => self.dma_data = self.bus.dma_read(),
+                        1 => {
+                            if let None = self.bus.dma_write(self.dma_data) {
+                                self.perform_dma = false;
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            } else {
+                self.cpu.cycle(&mut self.bus);
+            }
         }
+
         if self.bus.ack_nmi() {
             self.cpu.nmi(&mut self.bus);
         }

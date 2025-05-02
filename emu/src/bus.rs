@@ -21,6 +21,9 @@ pub struct NesBus {
     cpu_ram: Box<[u8; CPU_RAM_SIZE as usize]>,
     cart: Cartridge,
     ppu: Ppu,
+    dma_page: u8,
+    dma_idx: u8,
+    pub in_dma_transfer: bool,
     controller_latches: [u8; 2],
     pub controllers: [u8; 2],
 }
@@ -40,6 +43,9 @@ impl NesBus {
                 .expect("boxed array idiom should work"),
             cart,
             ppu,
+            dma_page: 0,
+            dma_idx: 0,
+            in_dma_transfer: false,
             controller_latches: [0; 2],
             controllers: [0; 2],
         })
@@ -48,6 +54,25 @@ impl NesBus {
     /// Perform one clock-cycle worth of emulation.
     pub fn cycle(&mut self, canvas: &mut impl Canvas) {
         self.ppu.cycle(&self.cart, canvas);
+    }
+
+    #[must_use]
+    pub fn dma_read(&self) -> u8 {
+        self.cpu_ram[usize::from(self.dma_page) << 8 | usize::from(self.dma_idx)]
+    }
+
+    pub fn dma_write(&mut self, value: u8) -> Option<()> {
+        let object_idx = self.dma_idx / 4;
+        let field_idx = self.dma_idx % 4;
+        self.ppu.oam[usize::from(object_idx)][field_idx] = value;
+
+        if let Some(new_idx) = self.dma_idx.checked_add(1) {
+            self.dma_idx = new_idx;
+            Some(())
+        } else {
+            self.in_dma_transfer = false;
+            None
+        }
     }
 
     #[must_use]
@@ -113,7 +138,8 @@ impl Bus for NesBus {
 
             0x8000..=0xFFFF => self.cart.prg()[usize::from((addr - 0x8000) % PRG_ROM_SIZE)],
 
-            _ => unimplemented!("read from open bus"),
+            // _ => unimplemented!("read from open bus"),
+            _ => 0,
         }
     }
 
@@ -136,8 +162,15 @@ impl Bus for NesBus {
                 value,
             ),
 
-            0x4000..0x4016 => {
+            0x4000..0x4014 | 0x4015 => {
                 // todo
+            }
+
+            // OAM Direct memory access
+            0x4014 => {
+                self.dma_page = value;
+                self.dma_idx = 0;
+                self.in_dma_transfer = true;
             }
 
             0x4016 | 0x4017 => {
@@ -145,7 +178,8 @@ impl Bus for NesBus {
                 self.controller_latches[i] = self.controllers[i];
             }
 
-            _ => unimplemented!("write to open bus"),
+            // _ => unimplemented!("write to open bus"),
+            _ => {}
         }
     }
 }
@@ -197,6 +231,9 @@ mod tests {
                 .expect("boxed array idiom should work"),
             cart,
             ppu,
+            dma_page: 0,
+            dma_idx: 0,
+            in_dma_transfer: false,
             controller_latches: [0; 2],
             controllers: [0; 2],
         }
