@@ -2,7 +2,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
-use emu::{Canvas, Cpu, NesBus};
+use glvs_core::{Canvas, Cpu, NesBus};
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
 use sdl3::pixels::Color;

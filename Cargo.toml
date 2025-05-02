@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
 members = [
-    "app",
-    "emu"
+    "glvs",
+    "glvs-core"
 ]
 
 [workspace.package]

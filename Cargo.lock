@@ -9,15 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
-name = "app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "emu",
- "sdl3",
-]
-
-[[package]]
 name = "arbitrary-int"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -42,7 +33,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
-name = "emu"
+name = "glvs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glvs-core",
+ "sdl3",
+]
+
+[[package]]
+name = "glvs-core"
 version = "0.1.0"
 dependencies = [
  "arbitrary-int",
