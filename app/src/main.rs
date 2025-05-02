@@ -1,5 +1,5 @@
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use emu::{Canvas, Cpu, NesBus};
 use sdl3::event::Event;
@@ -9,6 +9,9 @@ use sdl3::pixels::Color;
 const WIDTH: u32 = 256;
 const HEIGHT: u32 = 240;
 const SCALING_FACTOR: u16 = 4;
+
+// 1s / 60
+const FRAME_TIME: Duration = Duration::from_nanos(16_666_667);
 
 fn main() -> Result<(), anyhow::Error> {
     let mut bus = NesBus::new(&std::fs::read("./resources/dk.nes")?)?;
@@ -45,15 +48,17 @@ fn main() -> Result<(), anyhow::Error> {
     window.set_size(w / integer_pixel_density, h / integer_pixel_density)?;
 
     let mut canvas = window.into_canvas();
+    canvas.set_scale(f32::from(SCALING_FACTOR), f32::from(SCALING_FACTOR))?;
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
     canvas.present();
-    canvas.set_scale(f32::from(SCALING_FACTOR), f32::from(SCALING_FACTOR))?;
 
+    let mut start_time: Instant;
     let mut event_pump = sdl_context.event_pump()?;
     loop {
-        emu.bus.controllers[0] = 0;
+        start_time = Instant::now();
 
+        emu.bus.controllers[0] = 0;
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -61,6 +66,7 @@ fn main() -> Result<(), anyhow::Error> {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => return Ok(()),
+
                 Event::KeyDown {
                     keycode: Some(Keycode::Right),
                     ..
@@ -109,8 +115,10 @@ fn main() -> Result<(), anyhow::Error> {
         MyCanvas(canvas) = canvas_for_ppu;
         canvas.present();
 
-        // TODO: timing
-        thread::sleep(Duration::from_secs(1) / 60);
+        let elapsed = start_time.elapsed();
+        if FRAME_TIME.saturating_sub(elapsed) > Duration::ZERO {
+            thread::sleep(FRAME_TIME - elapsed);
+        }
     }
 }
 
