@@ -1,4 +1,7 @@
 /target
 
+/.vscode/
+/.idea/
+
 # large binary files and copyrighted ROMs.
 resources/
