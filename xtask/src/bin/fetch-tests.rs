@@ -4,7 +4,7 @@ use std::{env, fs};
 
 use anyhow::Context as _;
 
-const REPO: &str = "https://github.com/averms/nes_6502";
+const REPO: &str = "https://github.com/averms/glvs";
 const TARBALL_NAME: &str = "single_step.tar.zst";
 
 fn main() -> Result<(), anyhow::Error> {
