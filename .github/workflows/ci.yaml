@@ -1,0 +1,33 @@
+name: ci
+on:
+  push:
+    branches: [trunk]
+  pull_request:
+    branches: [trunk]
+  workflow_dispatch: null
+
+permissions: {}
+
+jobs:
+  test:
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - ubuntu-24.04-arm
+          - macos-13
+          - macos-latest
+
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: cargo xtask get_tests
+      - run: cargo test
