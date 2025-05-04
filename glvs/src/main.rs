@@ -31,7 +31,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut window = video_subsystem
         .window(
-            "nes",
+            "glvs",
             WIDTH * u32::from(SCALING_FACTOR),
             HEIGHT * u32::from(SCALING_FACTOR),
         )
