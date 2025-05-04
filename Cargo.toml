@@ -6,6 +6,7 @@ members = ["glvs", "glvs-core", "xtask"]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.86"
+repository = "https://github.com/averms/glvs"
 
 [workspace.lints.rust]
 non-ascii-idents = "warn"
