@@ -5,6 +5,14 @@ An emulator for Nintendo Entertainment System (NES).
 ![A screenshot of the first level of Ice
 Climber](https://github.com/user-attachments/assets/9598143e-fb3a-4863-9d21-07635530224d)
 
+## Controls
+
+- Arrow keys for the D-pad
+- <kbd>A</kbd> is the A button
+- <kbd>S</kbd> is the B button
+- <kbd>Q</kbd> is Select
+- <kbd>W</kbd> is Start
+
 ## Running tests
 
 After cloning the repo:
