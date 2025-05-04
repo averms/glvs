@@ -5,7 +5,7 @@ members = ["glvs", "glvs-core", "xtask"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.86"
+rust-version = "1.85"
 repository = "https://github.com/averms/glvs"
 
 [workspace.lints.rust]
