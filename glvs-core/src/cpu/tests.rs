@@ -39,7 +39,10 @@ fn store_to_immediate() {
 
 #[test]
 fn single_step() {
-    let tests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/single_step");
+    let tests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("resources/single_step");
     let tests_iter = tests_dir.read_dir().expect("test cases dir not found");
     for entry in tests_iter {
         let test_path = entry.unwrap().path();
