@@ -2,6 +2,7 @@
 name = "glvs-core"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 arbitrary-int = "1.3.0"
