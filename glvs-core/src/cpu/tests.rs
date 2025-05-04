@@ -1,3 +1,5 @@
+extern crate std;
+use std::boxed::Box;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -108,7 +110,7 @@ struct TestBus {
 impl Default for TestBus {
     fn default() -> Self {
         Self {
-            ram: vec![0; BUS_SIZE]
+            ram: std::vec![0; BUS_SIZE]
                 .try_into()
                 .expect("this is the idiom to create arrays on the heap."),
         }

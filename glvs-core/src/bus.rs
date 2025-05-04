@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::boxed::Box;
+
 use crate::cartridge::{Cartridge, PRG_ROM_SIZE};
 use crate::ppu::{Canvas, Ppu, RegisterKind};
 use crate::util::NesError;
@@ -33,12 +36,12 @@ impl NesBus {
     ///
     /// # Errors
     /// When `rom_data` fails to be parsed.
-    pub fn new(rom_data: &[u8]) -> Result<Self, NesError> {
+    pub fn new(rom_data: Box<[u8]>) -> Result<Self, NesError> {
         let cart = Cartridge::new(rom_data)?;
         let ppu = Ppu::new(&cart);
 
         Ok(Self {
-            cpu_ram: vec![0; usize::from(CPU_RAM_SIZE)]
+            cpu_ram: alloc::vec![0; usize::from(CPU_RAM_SIZE)]
                 .try_into()
                 .expect("boxed array idiom should work"),
             cart,
@@ -226,7 +229,7 @@ mod tests {
         let ppu = Ppu::new(&cart);
 
         NesBus {
-            cpu_ram: vec![0; usize::from(CPU_RAM_SIZE)]
+            cpu_ram: alloc::vec![0; usize::from(CPU_RAM_SIZE)]
                 .try_into()
                 .expect("boxed array idiom should work"),
             cart,

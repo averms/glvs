@@ -3,7 +3,9 @@
 mod registers;
 mod video;
 
-use std::ops::{Index, IndexMut};
+extern crate alloc;
+use alloc::boxed::Box;
+use core::ops::{Index, IndexMut};
 
 use arbitrary_int::{u3, u5};
 

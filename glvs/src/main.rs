@@ -16,7 +16,7 @@ const FRAME_TIME: Duration = Duration::from_nanos(16_666_667);
 
 fn main() -> Result<(), anyhow::Error> {
     let rom_path = std::env::args().nth(1).context("no rom path given")?;
-    let mut bus = NesBus::new(&std::fs::read(rom_path)?)?;
+    let mut bus = NesBus::new(std::fs::read(rom_path)?.into_boxed_slice())?;
     let cpu = Cpu::new(&mut bus);
     let mut emu = Emulator {
         bus,

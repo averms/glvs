@@ -1,3 +1,5 @@
+#![no_std]
+
 mod bus;
 mod cartridge;
 mod cpu;
