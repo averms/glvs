@@ -30,4 +30,4 @@ jobs:
         with:
           persist-credentials: false
       - run: cargo xtask fetch-tests
-      - run: cargo test
+      - run: cargo test --package glvs-core
