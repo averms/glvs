@@ -19,4 +19,5 @@ OSes these days.
 
 ## Internals
 
-For writing on the internals and architecture of the emulator, see ./doc/architecture.md.
+For writing on the internals and architecture of the emulator, see
+[./doc/architecture.md](./doc/architecture.md).
