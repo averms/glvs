@@ -29,5 +29,5 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - run: cargo xtask get_tests
+      - run: cargo xtask fetch-tests
       - run: cargo test
