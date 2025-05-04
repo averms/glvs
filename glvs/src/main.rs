@@ -1,7 +1,7 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::Context;
+use anyhow::Context as _;
 use glvs_core::{Canvas, Cpu, NesBus};
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
@@ -141,7 +141,7 @@ impl Emulator {
                     match self.ppu_cycle_count % 2 {
                         0 => self.dma_data = self.bus.dma_read(),
                         1 => {
-                            if let None = self.bus.dma_write(self.dma_data) {
+                            if self.bus.dma_write(self.dma_data).is_none() {
                                 self.perform_dma = false;
                             }
                         }
