@@ -168,7 +168,7 @@ impl Ppu {
 
                     self.zero_hit_possible = false;
                     for (i, obj) in self.oam.into_iter().enumerate() {
-                        let diff = self.scanline as i16 - obj.y as i16;
+                        let diff = self.scanline as i16 - i16::from(obj.y);
                         if (0..if self.regs.ctrl.large_sprite() { 16 } else { 8 }).contains(&diff)
                             && self.sprite_count < 8
                         {
@@ -265,7 +265,7 @@ impl Ppu {
                         let msb = self.sprite_shifter_1[i] >> 7 & 1;
                         msb << 1 | lsb
                     };
-                    fg_palette_idx = u8::from(obj.attr & 0b11) + 4;
+                    fg_palette_idx = (obj.attr & 0b11) + 4;
                     fg_priority = !util::bit(obj.attr, 5);
 
                     if fg_pixel_idx != 0 {
