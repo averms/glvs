@@ -9,7 +9,7 @@ use core::ops::{Index, IndexMut};
 
 use arbitrary_int::{u3, u5};
 
-use crate::cartridge::{CHR_ROM_SIZE, Cartridge, Orientation};
+use crate::cartridge::{CHR_ROM_SIZE, Cartridge, MirrorMode};
 use crate::ppu::registers::{CtrlBits, Loopy, MaskBits, StatusBits};
 use crate::ppu::video::{COLORS, Rgb8};
 use crate::util;
@@ -31,7 +31,7 @@ pub struct Ppu {
     regs: Registers,
     data_buffer: u8,
     second_write: bool,
-    nmtable_mirroring: Orientation,
+    nmtable_mirroring: MirrorMode,
     scanline: u32,
     dot: u32,
     odd_frame: bool,
@@ -664,7 +664,7 @@ impl Ppu {
 }
 
 /// Returns (name table 0 or 1, address of cell inside the name table).
-fn nmtable_indices(mirroring: Orientation, addr: u16) -> (usize, usize) {
+fn nmtable_indices(mirroring: MirrorMode, addr: u16) -> (usize, usize) {
     const TABLE_1_START: u16 = 0x2000;
     const TABLE_2_START: u16 = 0x2400;
     const TABLE_3_START: u16 = 0x2800;
@@ -675,15 +675,15 @@ fn nmtable_indices(mirroring: Orientation, addr: u16) -> (usize, usize) {
         TABLE_1_START..TABLE_2_START => (0, usize::from(addr - TABLE_1_START)),
         TABLE_2_START..TABLE_3_START => (
             match mirroring {
-                Orientation::Horizontal => 0,
-                Orientation::Vertical => 1,
+                MirrorMode::Horizontal => 0,
+                MirrorMode::Vertical => 1,
             },
             usize::from(addr - TABLE_2_START),
         ),
         TABLE_3_START..TABLE_4_START => (
             match mirroring {
-                Orientation::Horizontal => 1,
-                Orientation::Vertical => 0,
+                MirrorMode::Horizontal => 1,
+                MirrorMode::Vertical => 0,
             },
             usize::from(addr - TABLE_3_START),
         ),

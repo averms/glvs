@@ -12,11 +12,11 @@ pub const PRG_ROM_SIZE: u16 = 16 * 1024;
 pub struct Cartridge {
     data: Box<[u8]>,
     chr_idx: usize,
-    nmtable_mirroring: Orientation,
+    nmtable_mirroring: MirrorMode,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Orientation {
+pub enum MirrorMode {
     Horizontal,
     Vertical,
 }
@@ -57,11 +57,10 @@ impl Cartridge {
             return Err(NesError::RomParsing);
         }
 
-        // TODO: double-check this, it might be swapped.
         let nmtable_mirroring = if util::bit(data[6], 0) {
-            Orientation::Vertical
+            MirrorMode::Vertical
         } else {
-            Orientation::Horizontal
+            MirrorMode::Horizontal
         };
 
         Ok(Self {
@@ -81,7 +80,7 @@ impl Cartridge {
         &self.data[HEADER_SIZE..self.chr_idx]
     }
 
-    pub fn nmtable_mirroring(&self) -> Orientation {
+    pub fn nmtable_mirroring(&self) -> MirrorMode {
         self.nmtable_mirroring
     }
 
@@ -92,7 +91,7 @@ impl Cartridge {
                 alloc::vec![0; HEADER_SIZE + usize::from(PRG_ROM_SIZE) + usize::from(CHR_ROM_SIZE)]
                     .into_boxed_slice(),
             chr_idx: 0,
-            nmtable_mirroring: Orientation::Horizontal,
+            nmtable_mirroring: MirrorMode::Horizontal,
         }
     }
 }
