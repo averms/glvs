@@ -5,6 +5,7 @@ mod video;
 
 extern crate alloc;
 use alloc::boxed::Box;
+use core::array;
 use core::ops::{Index, IndexMut};
 
 use arbitrary_int::{u3, u5};
@@ -77,7 +78,7 @@ pub enum RegisterKind {
     Data,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct Object {
     x: u8,
     y: u8,
@@ -125,8 +126,8 @@ impl Ppu {
                 }
             },
             palettes: [0; 32],
-            oam: [Object::default(); 64],
-            line_oam: [Object::default(); 8],
+            oam: array::from_fn(|_| Object::default()),
+            line_oam: array::from_fn(|_| Object::default()),
             regs: Registers::default(),
             data_buffer: 0,
             second_write: false,
@@ -169,7 +170,7 @@ impl Ppu {
                     self.sprite_shifter_1.fill(0);
 
                     self.zero_hit_possible = false;
-                    for (i, obj) in self.oam.into_iter().enumerate() {
+                    for (i, obj) in self.oam.iter().enumerate() {
                         let diff = self.scanline as i16 - i16::from(obj.y);
                         if (0..if self.regs.ctrl.large_sprite() { 16 } else { 8 }).contains(&diff)
                             && self.sprite_count < 8
@@ -177,7 +178,7 @@ impl Ppu {
                             if i == 0 {
                                 self.zero_hit_possible = true;
                             }
-                            self.line_oam[usize::from(self.sprite_count)] = obj;
+                            self.line_oam[usize::from(self.sprite_count)] = obj.clone();
                             self.sprite_count += 1;
                         }
                     }
