@@ -17,17 +17,18 @@ all = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 restriction = { level = "warn", priority = -1 }
 
+# good lints from clippy::nursery
 use-self = "warn"
 redundant-pub-crate = "warn"
 needless-pass-by-ref-mut = "warn"
 
-# clippy::pedantic allows
+# bad lints from clippy::pedantic
 if-not-else = "allow"
 many-single-char-names = "allow"
 missing-panics-doc = "allow"
 too-many-lines = "allow"
 
-# clippy::restriction allows
+# bad lints from clippy::restriction
 absolute-paths = "allow"
 allow-attributes-without-reason = "allow"
 arbitrary-source-item-ordering = "allow"
