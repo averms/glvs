@@ -156,7 +156,7 @@ impl Cpu {
     /// Execute one instruction. This calls [`Cpu::cycle`] one or more times.
     pub fn one_instruction(&mut self, bus: &mut impl Bus) {
         loop {
-            self.cycle(bus);
+            self.tick(bus);
             if self.cycles_left == 0 {
                 break;
             }
@@ -167,7 +167,7 @@ impl Cpu {
     /// at all. In fact, it does every operation in one cycle and then does
     /// nothing for the remaining cycles that instruction is supposed to
     /// take.
-    pub fn cycle(&mut self, bus: &mut impl Bus) {
+    pub fn tick(&mut self, bus: &mut impl Bus) {
         if self.cycles_left > 0 {
             self.cycles_left -= 1;
             return;

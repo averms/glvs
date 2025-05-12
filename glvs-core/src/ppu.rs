@@ -155,7 +155,7 @@ impl Ppu {
 
     /// One PPU cycle draws a single pixel. Implemented following
     /// <https://www.nesdev.org/wiki/File:Ppu.svg>.
-    pub fn cycle(&mut self, cart: &Cartridge, canvas: &mut impl Canvas) {
+    pub fn tick(&mut self, cart: &Cartridge, canvas: &mut impl Canvas) {
         let is_rendering = self.regs.mask.bg_rendering() || self.regs.mask.sprite_rendering();
 
         match self.scanline {

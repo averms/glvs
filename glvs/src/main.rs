@@ -130,7 +130,7 @@ struct Emulator {
 
 impl Emulator {
     fn tick(&mut self, canvas: &mut impl Canvas) {
-        self.bus.cycle(canvas);
+        self.bus.tick(canvas);
 
         if self.ppu_cycle_count % 3 == 0 {
             if self.bus.in_dma_transfer {
@@ -149,7 +149,7 @@ impl Emulator {
                     }
                 }
             } else {
-                self.cpu.cycle(&mut self.bus);
+                self.cpu.tick(&mut self.bus);
             }
         }
 

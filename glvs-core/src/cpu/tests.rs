@@ -72,10 +72,10 @@ fn opcode_works(test_file: &Path) {
         };
         setup_bus(&mut bus, &case.initial.ram);
 
-        cpu.cycle(&mut bus);
+        cpu.tick(&mut bus);
         let got_cycles = cpu.cycles_left + 1;
         for _ in 1..got_cycles {
-            cpu.cycle(&mut bus);
+            cpu.tick(&mut bus);
         }
 
         assert_eq!(usize::from(got_cycles), case.cycles.len());

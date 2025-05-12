@@ -55,8 +55,8 @@ impl NesBus {
     }
 
     /// Perform one clock-cycle worth of emulation.
-    pub fn cycle(&mut self, canvas: &mut impl Canvas) {
-        self.ppu.cycle(&self.cart, canvas);
+    pub fn tick(&mut self, canvas: &mut impl Canvas) {
+        self.ppu.tick(&self.cart, canvas);
     }
 
     #[must_use]
