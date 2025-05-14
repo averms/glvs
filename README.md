@@ -22,7 +22,7 @@ cargo xtask fetch-tests
 cargo test
 ```
 
-Extracting the tests depends on tar(1) and curl(1), which are shipped with all major
+Fetching the tests depends on tar(1) and curl(1), which are shipped with all major
 OSes these days.
 
 ## Internals
