@@ -7,7 +7,7 @@ repository.workspace = true
 
 [dependencies]
 anyhow = "1.0.98"
-sdl3 = "0.14.25"
+sdl3 = { version = "0.17.3", features = ["use-pkg-config"] }
 glvs-core = { path = "../glvs-core" }
 
 [lints]
